@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "beatfall/contracts/beatmap.schema.json",
+  "title": "Beatmap",
+  "type": "object",
+  "required": ["beatmapId", "songId", "generatorVersion", "difficulty", "mode", "laneCount", "notes"],
+  "properties": {
+    "beatmapId": { "type": "string", "description": "songId/g<generatorVersion>/<difficulty>/<mode>" },
+    "songId": { "type": "string", "pattern": "^yt:[A-Za-z0-9_-]{11}$" },
+    "generatorVersion": { "type": "integer", "minimum": 1 },
+    "difficulty": { "enum": ["easy", "medium", "hard"] },
+    "mode": { "const": "standard" },
+    "laneCount": { "const": 4 },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["t", "lane", "type"],
+        "properties": {
+          "t": { "type": "number", "minimum": 0 },
+          "lane": { "type": "integer", "minimum": 0, "maximum": 3 },
+          "type": { "enum": ["tap", "hold"] },
+          "dur": { "type": "number", "exclusiveMinimum": 0 }
+        }
+      }
+    }
+  }
+}
