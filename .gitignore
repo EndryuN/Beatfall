@@ -1,0 +1,14 @@
+# Brainstorming companion sessions
+.superpowers/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Node
+node_modules/
+dist/
+
+# Local data (song library + beatmaps are user data, not source)
+data/
