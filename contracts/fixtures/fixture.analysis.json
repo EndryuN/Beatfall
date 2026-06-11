@@ -1,0 +1,27 @@
+{
+  "songId": "yt:dQw4w9WgXcQ",
+  "analysisVersion": 1,
+  "title": "Never Gonna Give You Up (fixture)",
+  "channel": "Rick Astley",
+  "duration": 213.0,
+  "thumbnail": "https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg",
+  "bpm": 113.0,
+  "beatGrid": [0.60, 1.13, 1.66, 2.19, 2.72, 3.25, 3.78, 4.31, 4.84, 5.37, 5.90, 6.43, 6.97, 7.50, 8.03, 8.56],
+  "roster": ["drummer", "singer", "guitarist"],
+  "events": [
+    { "t": 0.60, "stem": "drums", "kind": "onset", "strength": 0.9 },
+    { "t": 1.13, "stem": "drums", "kind": "onset", "strength": 0.7 },
+    { "t": 1.66, "stem": "drums", "kind": "onset", "strength": 0.9 },
+    { "t": 2.19, "stem": "drums", "kind": "onset", "strength": 0.7 },
+    { "t": 2.72, "stem": "vocals", "kind": "sustain", "strength": 0.8, "dur": 1.2, "pitch": 65.0, "pitchConf": 0.9 },
+    { "t": 4.31, "stem": "drums", "kind": "onset", "strength": 0.85 }
+  ],
+  "energyCurves": {
+    "sampleRateHz": 15,
+    "stems": {
+      "drums": [0.1, 0.4, 0.8, 0.7, 0.8, 0.6, 0.8, 0.7, 0.9, 0.8],
+      "vocals": [0.0, 0.0, 0.2, 0.5, 0.7, 0.8, 0.6, 0.4, 0.5, 0.6],
+      "other": [0.3, 0.4, 0.5, 0.5, 0.6, 0.6, 0.5, 0.5, 0.6, 0.6]
+    }
+  }
+}

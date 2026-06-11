@@ -1,0 +1,24 @@
+{
+  "beatmapId": "yt:dQw4w9WgXcQ/g1/hard/standard",
+  "songId": "yt:dQw4w9WgXcQ",
+  "generatorVersion": 1,
+  "difficulty": "hard",
+  "mode": "standard",
+  "laneCount": 4,
+  "notes": [
+    { "t": 0.60, "lane": 0, "type": "tap" }, { "t": 0.87, "lane": 1, "type": "tap" },
+    { "t": 1.13, "lane": 2, "type": "tap" }, { "t": 1.40, "lane": 3, "type": "tap" },
+    { "t": 1.66, "lane": 0, "type": "tap" }, { "t": 1.93, "lane": 2, "type": "tap" },
+    { "t": 2.19, "lane": 1, "type": "tap" }, { "t": 2.46, "lane": 3, "type": "tap" },
+    { "t": 2.72, "lane": 2, "type": "hold", "dur": 1.05 },
+    { "t": 3.25, "lane": 0, "type": "tap" }, { "t": 3.78, "lane": 1, "type": "tap" },
+    { "t": 4.05, "lane": 3, "type": "tap" }, { "t": 4.31, "lane": 0, "type": "tap" },
+    { "t": 4.58, "lane": 1, "type": "tap" }, { "t": 4.84, "lane": 2, "type": "tap" },
+    { "t": 5.11, "lane": 3, "type": "tap" }, { "t": 5.37, "lane": 0, "type": "tap" },
+    { "t": 5.90, "lane": 1, "type": "hold", "dur": 1.05 },
+    { "t": 6.97, "lane": 3, "type": "tap" }, { "t": 7.23, "lane": 2, "type": "tap" },
+    { "t": 7.50, "lane": 0, "type": "tap" }, { "t": 7.76, "lane": 1, "type": "tap" },
+    { "t": 8.03, "lane": 2, "type": "tap" }, { "t": 8.29, "lane": 3, "type": "tap" },
+    { "t": 8.56, "lane": 0, "type": "tap" }
+  ]
+}
