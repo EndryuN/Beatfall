@@ -1,5 +1,6 @@
 # pipeline/tests/test_analyze.py
 import numpy as np
+import pytest
 from beatfall_pipeline.analyze import analyze_audio
 from beatfall_pipeline.models import SongMeta
 from .audio_fixtures import SR, click_track, tone, silence, concat
@@ -66,19 +67,34 @@ def test_melody_split_into_notes():
     assert abs((sus[0].pitch or 0) - 69) < 1.0      # A4
     assert abs((sus[-1].pitch or 0) - 74) < 1.0     # D5
 
-def test_melodic_stem_onsets_detected():
+def test_melodic_stem_events_detected():
+    """Lead-instrument stem must yield chartable events — transcribed notes when
+    basic-pitch is available, heuristic onsets otherwise."""
     n = int(6 * SR)
     drums = np.zeros(n, dtype=np.float32)
     other = np.zeros(n, dtype=np.float32)
     for t in (1.0, 2.0):
         _burst(drums, SR, t, [60, 90])
+    riff = tone(660, 0.4)                            # E5 guitar-ish stabs
     for t in (3.0, 4.0):
-        _burst(other, SR, t, [800, 1600])           # guitar-ish stabs
+        i = int(t * SR)
+        other[i:i + len(riff)] += riff
     stems = {"drums": drums, "bass": np.zeros(n, dtype=np.float32),
              "vocals": np.zeros(n, dtype=np.float32), "other": other}
     doc = analyze_audio((drums + other), SR,
                         SongMeta(videoId="dQw4w9WgXcQ", title="t", duration=6.0), stems=stems)
-    assert any(e.kind == "onset" and e.stem == "other" for e in doc.events)
+    assert any(e.stem == "other" for e in doc.events)
+
+def test_transcription_path_produces_pitched_notes():
+    pytest.importorskip("basic_pitch")
+    n = int(4 * SR)
+    vocals = concat(silence(0.5), tone(440, 1.0), silence(2.5))[:n]
+    zeros = np.zeros(n, dtype=np.float32)
+    stems = {"drums": zeros, "bass": zeros, "vocals": vocals, "other": zeros}
+    doc = analyze_audio(vocals, SR, SongMeta(videoId="dQw4w9WgXcQ", title="t", duration=4.0),
+                        stems=stems)
+    vocal_notes = [e for e in doc.events if e.stem == "vocals" and e.pitch is not None]
+    assert vocal_notes and any(abs((e.pitch or 0) - 69) < 1.0 for e in vocal_notes)
 
 def test_analyze_with_real_stems():
     """Demucs path: onsets from the drums stem, sustains from vocals and bass,

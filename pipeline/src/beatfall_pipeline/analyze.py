@@ -1,7 +1,10 @@
+import logging
 import numpy as np
 import librosa
 from . import ANALYSIS_VERSION
 from .models import AnalysisDoc, EnergyCurves, Event, SongMeta
+
+log = logging.getLogger(__name__)
 
 HOP = 512
 CURVE_HZ = 15.0
@@ -109,6 +112,25 @@ def _onset_events(y_drums: np.ndarray, sr: int, classify_on: np.ndarray) -> list
 def _active(y_stem: np.ndarray) -> bool:
     return float(np.sqrt(np.mean(y_stem ** 2))) >= STEM_ACTIVITY_RMS
 
+def _melodic_events(stems: dict[str, np.ndarray], sr: int) -> tuple[list[Event], bool]:
+    """The 'piano cover' pass: transcribe melodic stems into real note events.
+    Returns (events, transcribed?) — falls back to pitch tracking when the model is unavailable."""
+    try:
+        from .transcribe import transcribe_notes
+        events: list[Event] = []
+        if _active(stems["vocals"]):
+            events += transcribe_notes(stems["vocals"], sr, "vocals", pitch_min=43, pitch_max=84)
+        if _active(stems["other"]):
+            events += transcribe_notes(stems["other"], sr, "other", pitch_min=36, pitch_max=96)
+        if _active(stems["bass"]):
+            events += transcribe_notes(stems["bass"], sr, "bass", pitch_min=24, pitch_max=60)
+        return events, True
+    except Exception as e:
+        log.warning("basic-pitch transcription unavailable, falling back to pitch tracking: %s", e)
+        events = _sustains(stems["vocals"], sr, stem="vocals", fmin=80, fmax=1000)
+        events += _sustains(stems["bass"], sr, stem="bass", fmin=40, fmax=250)
+        return events, False
+
 def analyze_audio(y: np.ndarray, sr: int, meta: SongMeta,
                   stems: dict[str, np.ndarray] | None = None) -> AnalysisDoc:
     """stems = real separated stems (Demucs). Without them, fall back to HPSS."""
@@ -119,10 +141,11 @@ def analyze_audio(y: np.ndarray, sr: int, meta: SongMeta,
 
     if stems is not None:
         events = _onset_events(stems["drums"], sr, classify_on=stems["drums"])
-        events += _sustains(stems["vocals"], sr, stem="vocals", fmin=80, fmax=1000)
-        events += _sustains(stems["bass"], sr, stem="bass", fmin=40, fmax=250)
-        events += _plain_onsets(stems["other"], sr, stem="other")
-        events += _plain_onsets(stems["bass"], sr, stem="bass")
+        melodic, transcribed = _melodic_events(stems, sr)
+        events += melodic
+        if not transcribed:                       # heuristic accents only when not transcribing
+            events += _plain_onsets(stems["other"], sr, stem="other")
+            events += _plain_onsets(stems["bass"], sr, stem="bass")
         curves = {name: _energy_curve(s, sr, duration) for name, s in stems.items()}
         roster: list = []
         if _active(stems["drums"]):
