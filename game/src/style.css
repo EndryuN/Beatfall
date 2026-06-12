@@ -9,6 +9,8 @@ body { background: #0c0e16; color: #e8eaf2; font-family: system-ui, sans-serif; 
 .side-col { flex: 1; display: flex; flex-direction: column; gap: 10px; padding: 12px; }
 .video-box { aspect-ratio: 16/9; background: #000; border-radius: 8px; overflow: hidden; }
 .video-box iframe { width: 100%; height: 100%; }
+.viz-box { height: 64px; background: #13141d; border-radius: 8px; overflow: hidden; }
+.viz-box canvas { width: 100%; height: 100%; display: block; }
 .stage-box { flex: 1; background: linear-gradient(180deg, #2a2236, #241c2e); border-radius: 8px;
              overflow: hidden; min-height: 0; }
 .stage-box canvas { width: 100%; height: 100%; display: block; }

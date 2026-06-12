@@ -6,6 +6,7 @@ import { judgeDelta, medianMs, HIT_WINDOW_MS, Scoreboard } from '../engine/judge
 import { SyncMachine } from '../engine/sync';
 import { InputMapper } from '../input';
 import { Highway } from '../render/highway';
+import { drawVisualizer } from '../render/visualizer';
 import { THEMES } from '../render/theme';
 import { loadSettings } from '../settings-store';
 import { YouTubePane } from '../youtube';
@@ -41,6 +42,7 @@ export async function runGame(root: HTMLElement, bm: Beatmap,
       </div>
       <div class="side-col">
         <div class="video-box"><div id="yt-mount"></div></div>
+        <div class="viz-box"><canvas id="viz-canvas"></canvas></div>
         <div class="stage-box"><canvas id="band-canvas"></canvas></div>
       </div>
     </div>`;
@@ -49,6 +51,9 @@ export async function runGame(root: HTMLElement, bm: Beatmap,
   const bandCanvas = root.querySelector('#band-canvas') as HTMLCanvasElement;
   bandCanvas.width = bandCanvas.clientWidth; bandCanvas.height = bandCanvas.clientHeight;
   const bandCtx = bandCanvas.getContext('2d')!;
+  const vizCanvas = root.querySelector('#viz-canvas') as HTMLCanvasElement;
+  vizCanvas.width = vizCanvas.clientWidth; vizCanvas.height = vizCanvas.clientHeight;
+  const vizCtx = vizCanvas.getContext('2d')!;
   const band = new Band(analysis?.roster ?? ['drummer', 'guitarist'], analysis?.energyCurves ?? null);
 
   const chart = new Chart(bm);
@@ -180,6 +185,7 @@ export async function runGame(root: HTMLElement, bm: Beatmap,
                    timingMs: hitDeltasMs.length >= 8 ? medianMs(hitDeltasMs) : null });
     band.update(dt);
     drawBand(bandCtx, band, t);
+    drawVisualizer(vizCtx, analysis?.energyCurves ?? null, t);
 
     overlay.classList.toggle('hidden', sync.state === 'live' || done);
     pauseMenu.classList.toggle('hidden', sync.state !== 'paused' || done);
