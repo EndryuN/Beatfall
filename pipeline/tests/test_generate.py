@@ -67,6 +67,12 @@ def test_easy_prefers_bar_downbeats():
     assert 4.0 in ts and 6.0 in ts                 # bar downbeat kicks survive
     assert not (4.5 in ts and 6.5 in ts)           # the louder off-anchor snares lose the budget fight
 
+def test_strong_snares_chord_the_inner_pair():
+    events = [_onset(4.0, s=0.95, drum="snare")]
+    maps = {m.difficulty: m for m in generate_beatmaps(_doc(events))}
+    at4 = [n for n in maps["hard"].notes if n.t == 4.0]
+    assert len(at4) == 2 and {n.lane for n in at4} == {1, 2}   # F+J double press
+
 def test_hard_chords_on_big_downbeat_kicks():
     events = [_onset(4.0, s=0.95, drum="kick"), _onset(5.0, s=0.6, drum="snare")]
     maps = {m.difficulty: m for m in generate_beatmaps(_doc(events))}
@@ -121,6 +127,36 @@ def test_repeated_bars_repeat_their_pattern():
     lanes_a = [n.lane for n in notes if 4.0 <= n.t < 6.0]
     lanes_b = [n.lane for n in notes if 8.0 <= n.t < 10.0]
     assert len(lanes_a) == 4 and lanes_a == lanes_b
+
+def test_short_melody_notes_become_pitch_laned_taps():
+    # rising 3-note melody line: taps (too short for holds) walking up the lanes
+    mel = [Event(t=4.0 + 0.5 * i, stem="vocals", kind="sustain", strength=0.8,
+                 dur=0.25, pitch=60.0 + 4 * i, pitchConf=0.9) for i in range(3)]
+    maps = {m.difficulty: m for m in generate_beatmaps(_doc(mel))}
+    notes = sorted(maps["easy"].notes, key=lambda n: n.t)
+    assert len(notes) == 3
+    assert all(n.type == "tap" for n in notes)                       # short = tap, not hold
+    assert [n.lane for n in notes] == sorted(n.lane for n in notes)  # rising melody walks right
+
+def test_melodic_onsets_only_on_harder_tiers():
+    events = [Event(t=4.0, stem="other", kind="onset", strength=0.9),
+              _onset(6.0, s=0.9, drum="kick")]
+    maps = {m.difficulty: m for m in generate_beatmaps(_doc(events))}
+    assert [n.t for n in maps["easy"].notes] == [6.0]            # drums only
+    assert {n.t for n in maps["hard"].notes} == {4.0, 6.0}       # melodic accents join
+
+def test_hard_fills_streams_in_high_energy():
+    curve = [1.0] * 300
+    events = [_onset(round(0.5 * i, 3), s=0.8, drum="kick") for i in range(4, 40)]  # 1/beat
+    maps = {m.difficulty: m for m in generate_beatmaps(_doc(events, drums_curve=curve))}
+    # detection gives ~2/s; hard must stream far beyond it, medium stays near detection
+    assert len(maps["hard"].notes) >= 1.8 * len(maps["medium"].notes)
+
+def test_hard_does_not_fill_quiet_parts():
+    curve = [0.1] * 300
+    events = [_onset(round(0.5 * i, 3), s=0.8, drum="kick") for i in range(4, 40)]
+    maps = {m.difficulty: m for m in generate_beatmaps(_doc(events, drums_curve=curve))}
+    assert len(maps["hard"].notes) <= len(events)                # no synthetic notes added
 
 def test_deterministic():
     events = [_onset(round(0.125 * i, 3), s=0.5 + (i % 7) * 0.07) for i in range(160)]

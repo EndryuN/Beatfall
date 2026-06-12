@@ -57,6 +57,29 @@ def test_onset_drum_classification():
     assert _drum_near(doc, 1.5) == "hat" and _drum_near(doc, 2.5) == "hat"
     assert _drum_near(doc, 3.0) == "snare" and _drum_near(doc, 4.0) == "snare"
 
+def test_melody_split_into_notes():
+    # A4 then D5, back to back: must come out as two pitched note events, not one blob
+    y = concat(tone(440, 0.5), tone(587.33, 0.5), silence(1.0))
+    doc = analyze_audio(y, SR, SongMeta(videoId="dQw4w9WgXcQ", title="t", duration=2.0))
+    sus = sorted([e for e in doc.events if e.kind == "sustain"], key=lambda e: e.t)
+    assert len(sus) >= 2
+    assert abs((sus[0].pitch or 0) - 69) < 1.0      # A4
+    assert abs((sus[-1].pitch or 0) - 74) < 1.0     # D5
+
+def test_melodic_stem_onsets_detected():
+    n = int(6 * SR)
+    drums = np.zeros(n, dtype=np.float32)
+    other = np.zeros(n, dtype=np.float32)
+    for t in (1.0, 2.0):
+        _burst(drums, SR, t, [60, 90])
+    for t in (3.0, 4.0):
+        _burst(other, SR, t, [800, 1600])           # guitar-ish stabs
+    stems = {"drums": drums, "bass": np.zeros(n, dtype=np.float32),
+             "vocals": np.zeros(n, dtype=np.float32), "other": other}
+    doc = analyze_audio((drums + other), SR,
+                        SongMeta(videoId="dQw4w9WgXcQ", title="t", duration=6.0), stems=stems)
+    assert any(e.kind == "onset" and e.stem == "other" for e in doc.events)
+
 def test_analyze_with_real_stems():
     """Demucs path: onsets from the drums stem, sustains from vocals and bass,
     roster from per-stem activity."""
