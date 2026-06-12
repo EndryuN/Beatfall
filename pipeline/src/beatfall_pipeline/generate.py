@@ -6,11 +6,22 @@ BAR_SLOTS = GRID_DIV * 4   # 4/4 assumed: 16 slots per bar
 MIN_LANE_GAP = 0.15        # same-finger limit, seconds
 LEAD_IN_S = 2.0            # no notes before this — the player needs a runway
 SNAP_TOL_FRAC = 0.35       # onsets farther than this fraction of a slot from the grid are noise
-MIN_ONSET_STRENGTH = 0.3   # weaker detections feel random, not musical
-MAX_BUDGET_CARRY = 1.5     # unused note budget rolls into the next beat, but doesn't pile up forever
-DENSITY = {"easy": 1.5, "medium": 3.0, "hard": 5.0}        # max notes/sec at full energy
-SLOT_FILTER = {"easy": 4, "medium": 2, "hard": 1}          # keep slots where slot % f == 0
-MIN_HOLD = {"easy": 1.0, "medium": 0.6, "hard": 0.5}
+MAX_BUDGET_CARRY = 1.5     # unused note budget rolls into the next window, but doesn't pile up forever
+CHORD_STRENGTH = 0.85      # downbeat kicks at least this strong become two-lane chords (hard)
+
+# Per-difficulty character:
+#   easy   = the backbone — bar anchors first, kicks/snares only, generous holds
+#   medium = the groove — 8ths, hats included, denser
+#   hard   = the full kit — 16ths, weak texture onsets, short holds, chords on big kicks
+DIFF = {
+    "easy":   {"density": 1.5, "slot": 4, "floor": 0.45, "min_hold": 1.0,
+               "energy": (0.25, 0.65), "hats": False, "chords": False, "window_beats": 4},
+    "medium": {"density": 4.0, "slot": 2, "floor": 0.30, "min_hold": 0.6,
+               "energy": (0.35, 0.85), "hats": True, "chords": False, "window_beats": 1},
+    "hard":   {"density": 6.5, "slot": 1, "floor": 0.20, "min_hold": 0.4,
+               "energy": (0.50, 0.80), "hats": True, "chords": True, "window_beats": 1},
+}
+DENSITY = {d: c["density"] for d, c in DIFF.items()}       # kept for external reference
 
 def _grid(beat_grid: list[float]) -> list[float]:
     """Subdivide beats into 16ths; extrapolate one beat past the end."""
@@ -56,30 +67,49 @@ def _energy_at(doc: AnalysisDoc, t: float) -> float:
     i = min(len(curve) - 1, max(0, int(t * doc.energyCurves.sampleRateHz)))
     return curve[i]
 
-def _select(snapped: list[Event], grid: list[float], difficulty: str, doc: AnalysisDoc) -> list[Event]:
-    f = SLOT_FILTER[difficulty]
-    sustains = [e for e in snapped
-                if e.kind == "sustain" and (e.dur or 0) >= MIN_HOLD[difficulty] and e.t >= LEAD_IN_S]
-    onsets = [e for e in snapped
-              if e.kind == "onset" and e.strength >= MIN_ONSET_STRENGTH
-              and e.t >= LEAD_IN_S and _slot_index(e.t, grid) % f == 0]
-    if difficulty == "easy":
-        onsets = [e for e in onsets if e.drum != "hat"]   # hats are texture, not beginner material
+def _metric_prio(e: Event, grid: list[float]) -> int:
+    """How structural a position is within its bar: downbeat, mid-bar, other beats, off-beats."""
+    return {0: 0, 8: 1, 4: 2, 12: 3}.get(_slot_index(e.t, grid) % BAR_SLOTS, 4)
 
-    # density follows the song: each beat gets a note budget scaled by the drums' energy there
+def _drum_prio(e: Event) -> int:
+    return {"kick": 0, "snare": 1, "hat": 3}.get(e.drum or "", 2)
+
+def _select(snapped: list[Event], grid: list[float], difficulty: str, doc: AnalysisDoc) -> list[Event]:
+    cfg = DIFF[difficulty]
+    sustains = [e for e in snapped
+                if e.kind == "sustain" and (e.dur or 0) >= cfg["min_hold"] and e.t >= LEAD_IN_S]
+    onsets = [e for e in snapped
+              if e.kind == "onset" and e.strength >= cfg["floor"]
+              and e.t >= LEAD_IN_S and _slot_index(e.t, grid) % cfg["slot"] == 0]
+    if not cfg["hats"]:
+        onsets = [e for e in onsets if e.drum != "hat"]
+
+    # density follows the song: each window gets a note budget scaled by the drums' energy.
+    # Easy budgets per bar and spends on the most PRIMARY notes (bar anchors, kicks first);
+    # medium/hard budget per beat and spend on the strongest.
     chosen = list(sustains)
     beats = doc.beatGrid
+    win = cfg["window_beats"]
+    e0, e1 = cfg["energy"]
     carry = 0.0
-    for bi, bt in enumerate(beats):
-        bt_end = beats[bi + 1] if bi + 1 < len(beats) else bt + (beats[-1] - beats[-2] if len(beats) > 1 else 0.5)
-        pool = [e for e in onsets if bt <= e.t < bt_end]
-        q = DENSITY[difficulty] * (bt_end - bt) * (0.30 + 0.85 * _energy_at(doc, bt)) + carry
+    for wi in range(0, len(beats), win):
+        wt = beats[wi]
+        if wi + win < len(beats):
+            wt_end = beats[wi + win]
+        else:
+            step = beats[-1] - beats[-2] if len(beats) > 1 else 0.5
+            wt_end = beats[-1] + step
+        pool = [e for e in onsets if wt <= e.t < wt_end]
+        q = cfg["density"] * (wt_end - wt) * (e0 + e1 * _energy_at(doc, wt)) + carry
         take = min(len(pool), int(q))
         carry = min(MAX_BUDGET_CARRY, q - take)
-        pool.sort(key=lambda e: (-e.strength, e.t))
+        if difficulty == "easy":
+            pool.sort(key=lambda e: (_metric_prio(e, grid), _drum_prio(e), -e.strength, e.t))
+        else:
+            pool.sort(key=lambda e: (-e.strength, e.t))
         chosen += pool[:take]
 
-    k = int(DENSITY[difficulty] * doc.duration)            # global ceiling regardless of energy
+    k = int(cfg["density"] * doc.duration)                 # global ceiling regardless of energy
     if len(chosen) > k:
         chosen.sort(key=lambda e: (-e.strength, e.t))
         chosen = chosen[:k]
@@ -139,8 +169,10 @@ def _apply_bar_patterns(events: list[Event], lanes: list[int], beat_grid: list[f
             memo[sig] = tuple(out[i] for i in idxs)
     return out
 
-def _place(events: list[Event], lanes: list[int]) -> list[Note]:
-    """Final placement with the same-finger gap enforced: rotate to a free lane, drop if none."""
+def _place(events: list[Event], lanes: list[int], grid: list[float],
+           chords: bool = False) -> list[Note]:
+    """Final placement with the same-finger gap enforced: rotate to a free lane, drop if none.
+    On hard, powerful downbeat kicks become two-lane chords (both outer lanes)."""
     notes: list[Note] = []
     last_in_lane: dict[int, float] = {}
     for e, lane in zip(events, lanes):
@@ -152,6 +184,13 @@ def _place(events: list[Event], lanes: list[int]) -> list[Note]:
                 notes.append(Note(t=e.t, lane=cand,
                                   type="hold" if hold_dur else "tap", dur=hold_dur))
                 last_in_lane[cand] = end_t
+                if (chords and e.kind == "onset" and e.drum == "kick"
+                        and e.strength >= CHORD_STRENGTH and cand in (0, 3)
+                        and _slot_index(e.t, grid) % GRID_DIV == 0):
+                    mirror = 3 - cand
+                    if e.t - last_in_lane.get(mirror, -10.0) >= MIN_LANE_GAP:
+                        notes.append(Note(t=e.t, lane=mirror, type="tap"))
+                        last_in_lane[mirror] = e.t
                 break
     return notes
 
@@ -166,5 +205,6 @@ def generate_beatmaps(doc: AnalysisDoc) -> list[Beatmap]:
         maps.append(Beatmap(
             beatmapId=f"{doc.songId}/g{GENERATOR_VERSION}/{difficulty}/standard",
             songId=doc.songId, generatorVersion=GENERATOR_VERSION,
-            difficulty=difficulty, notes=_place(chosen, lanes)))
+            difficulty=difficulty,
+            notes=_place(chosen, lanes, grid, chords=DIFF[difficulty]["chords"])))
     return maps

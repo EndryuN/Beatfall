@@ -53,8 +53,33 @@ def test_offgrid_onsets_filtered_as_noise():
     assert [n.t for n in maps["hard"].notes] == [3.0]
 
 def test_weak_onsets_filtered():
-    maps = {m.difficulty: m for m in generate_beatmaps(_doc([_onset(3.0, s=0.9), _onset(4.0, s=0.2)]))}
+    maps = {m.difficulty: m for m in generate_beatmaps(_doc([_onset(3.0, s=0.9), _onset(4.0, s=0.15)]))}
     assert [n.t for n in maps["hard"].notes] == [3.0]
+
+def test_easy_prefers_bar_downbeats():
+    # scarce budget: the bar anchor must win over a louder off-anchor note
+    curve = [0.1] * 300
+    events = [_onset(2.0, s=0.6, drum="kick"), _onset(3.0, s=0.6, drum="snare"),
+              _onset(4.0, s=0.5, drum="kick"), _onset(4.5, s=0.9, drum="snare"),
+              _onset(6.0, s=0.5, drum="kick"), _onset(6.5, s=0.9, drum="snare")]
+    maps = {m.difficulty: m for m in generate_beatmaps(_doc(events, drums_curve=curve))}
+    ts = [n.t for n in maps["easy"].notes]
+    assert 4.0 in ts and 6.0 in ts                 # bar downbeat kicks survive
+    assert not (4.5 in ts and 6.5 in ts)           # the louder off-anchor snares lose the budget fight
+
+def test_hard_chords_on_big_downbeat_kicks():
+    events = [_onset(4.0, s=0.95, drum="kick"), _onset(5.0, s=0.6, drum="snare")]
+    maps = {m.difficulty: m for m in generate_beatmaps(_doc(events))}
+    at4_hard = [n for n in maps["hard"].notes if n.t == 4.0]
+    assert len(at4_hard) == 2 and {n.lane for n in at4_hard} == {0, 3}   # two-lane chord
+    at4_easy = [n for n in maps["easy"].notes if n.t == 4.0]
+    assert len(at4_easy) == 1                                            # easy stays single
+
+def test_medium_denser_than_before_and_hard_denser_still():
+    events = [_onset(round(0.125 * i, 3), s=0.5 + (i % 5) * 0.1) for i in range(160)]
+    maps = {m.difficulty: m for m in generate_beatmaps(_doc(events))}
+    assert len(maps["medium"].notes) >= 30        # ≥ ~1.7/s over the 18 playable seconds
+    assert len(maps["hard"].notes) >= 50
 
 def test_downbeats_get_outer_lanes():
     maps = {m.difficulty: m for m in generate_beatmaps(_doc([_onset(2.0, s=0.9), _onset(2.5, s=0.9)]))}
