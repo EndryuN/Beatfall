@@ -2,7 +2,7 @@ import type { RuntimeNote } from '../engine/chart';
 import type { Theme } from './theme';
 import { Effects } from './effects';
 
-export interface HudState { score: number; combo: number; accuracy: number; }
+export interface HudState { score: number; combo: number; accuracy: number; hits: number; misses: number; }
 
 export class Highway {
   readonly effects = new Effects();
@@ -10,6 +10,10 @@ export class Highway {
   private time = 0;
   private lastCombo = 0;
   private comboPulse = 0;
+  private lastHits = 0;
+  private hitPulse = 0;
+  private lastMisses = 0;
+  private missPulse = 0;
 
   constructor(private canvas: HTMLCanvasElement, private theme: Theme,
               private laneCount = 4, private hitLineFrac = 0.85) {
@@ -36,6 +40,12 @@ export class Highway {
     if (hud.combo > this.lastCombo) this.comboPulse = 1;
     this.comboPulse = Math.max(0, this.comboPulse - dt * 5);
     this.lastCombo = hud.combo;
+    if (hud.hits > this.lastHits) this.hitPulse = 1;
+    this.hitPulse = Math.max(0, this.hitPulse - dt * 4);
+    this.lastHits = hud.hits;
+    if (hud.misses > this.lastMisses) this.missPulse = 1;
+    this.missPulse = Math.max(0, this.missPulse - dt * 3);
+    this.lastMisses = hud.misses;
 
     // backdrop: theme base + a soft glow pooling around the hit line
     ctx.fillStyle = theme.bg;
@@ -119,11 +129,24 @@ export class Highway {
     ctx.font = `bold ${Math.round(Math.min(34, w * 0.07))}px system-ui`;
     ctx.fillText(Math.round(hud.score).toLocaleString(), w / 2, 40);
     ctx.shadowBlur = 0;
-    // accuracy — top right corner
+    // top-right cluster: accuracy, then hits (green) and misses (red) popping as they change
     ctx.textAlign = 'right';
     ctx.fillStyle = 'rgba(255,255,255,0.65)';
     ctx.font = `600 ${Math.round(Math.min(15, w * 0.035))}px system-ui`;
     ctx.fillText(`${(hud.accuracy * 100).toFixed(1)}%`, w - 12, 24);
+    const counter = (text: string, color: string, y: number, pulse: number) => {
+      const size = Math.min(15, w * 0.035) * (1 + pulse * 0.5);
+      ctx.save();
+      ctx.translate(w - 12, y);
+      ctx.textAlign = 'right';
+      ctx.fillStyle = color;
+      ctx.shadowColor = color; ctx.shadowBlur = 4 + pulse * 14;
+      ctx.font = `bold ${Math.round(size)}px system-ui`;
+      ctx.fillText(text, 0, 0);
+      ctx.restore();
+    };
+    counter(`✓ ${hud.hits}`, '#06d6a0', 46, this.hitPulse);
+    counter(`✗ ${hud.misses}`, '#ff5e7a', 68, this.missPulse);
     // combo — large, mid-highway, pops on every hit
     if (hud.combo >= 2) {
       const scale = 1 + this.comboPulse * 0.35;

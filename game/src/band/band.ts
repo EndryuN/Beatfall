@@ -37,12 +37,20 @@ export class Band {
     return a + (b - a) * (x - i);
   }
 
+  private finaleMode: 'party' | 'defeat' | null = null;
+
   update(dt: number): void {
     this.t += dt;
     for (const m of this.members) {
-      if (m.pose === 'groove') continue;
-      m.poseT += dt;
-      if (m.poseT >= POSE_DUR[m.pose]) { m.pose = 'groove'; m.poseT = 0; }
+      if (m.pose !== 'groove') {
+        m.poseT += dt;
+        if (m.poseT >= POSE_DUR[m.pose]) {
+          // defeat finale: the fall settles into a permanent sulk
+          if (this.finaleMode === 'defeat') { this.setPose(m, 'frozen'); m.poseT = -1e9; continue; }
+          m.pose = 'groove'; m.poseT = 0;
+        }
+      }
+      if (m.pose === 'groove' && this.finaleMode === 'party') this.setPose(m, 'hype');
     }
   }
 
@@ -68,4 +76,10 @@ export class Band {
 
   onMilestone(): void { for (const m of this.members) this.setPose(m, 'hype'); }
   onComboBreak(): void { for (const m of this.members) this.setPose(m, 'frozen'); }
+
+  /** Song over: party hard on a good grade, collapse and sulk on a bad one. */
+  finale(good: boolean): void {
+    this.finaleMode = good ? 'party' : 'defeat';
+    for (const m of this.members) this.setPose(m, good ? 'hype' : 'fall');
+  }
 }

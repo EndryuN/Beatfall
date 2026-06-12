@@ -11,14 +11,17 @@ import { loadSettings } from '../settings-store';
 import { YouTubePane } from '../youtube';
 import type { AnalysisLite, Beatmap } from '../types';
 import { videoIdOf } from '../types';
+import { showResultsOverlay } from './results';
 
 export interface GameResult {
   beatmapId: string; score: number; maxCombo: number; grade: string;
   accuracy: number; counts: Record<string, number>; unranked: boolean;
 }
 
+export interface GameHandlers { onReplay: () => void; onExit: () => void; }
+
 export async function runGame(root: HTMLElement, bm: Beatmap,
-                              onDone: (r: GameResult) => void,
+                              handlers: GameHandlers,
                               analysis: AnalysisLite | null = null): Promise<() => void> {
   const settings = loadSettings();
   root.innerHTML = `
@@ -41,8 +44,7 @@ export async function runGame(root: HTMLElement, bm: Beatmap,
 
   const chart = new Chart(bm);
   const clock = new SongClock();
-  // No blocking count-in: maps have a 2 s note-free lead-in, and resume-from-pause
-  // rewinds 3 s of already-played ground — both give a natural runway.
+  // No blocking count-in: maps have a 2 s note-free lead-in as the runway.
   const sync = new SyncMachine(0);
   const board = new Scoreboard();
   const mapper = new InputMapper(settings.keyCodes);
@@ -57,6 +59,7 @@ export async function runGame(root: HTMLElement, bm: Beatmap,
   const holding: (ReturnType<Chart['findHittable']> | null)[] = [null, null, null, null];
 
   function onKey(e: KeyboardEvent, down: boolean): void {
+    if (done) return;
     const lane = mapper.laneFor(e.code);
     if (lane === null || e.repeat) return;
     pressed[lane] = down;
@@ -123,7 +126,7 @@ export async function runGame(root: HTMLElement, bm: Beatmap,
       t = snap.currentTime;
     }
 
-    if (sync.state === 'live') {
+    if (sync.state === 'live' && !done) {
       if (!wasLive) chart.dropBefore(t - HIT_WINDOW_MS / 1000); // forgive notes lost to the gap
       for (const _missed of chart.sweepMissed(t)) {
         const hadBigCombo = board.combo >= 50;
@@ -144,21 +147,29 @@ export async function runGame(root: HTMLElement, bm: Beatmap,
     }
     wasLive = sync.state === 'live';
     highway.draw(chart.visible(t, 2.5), t, settings.scrollSpeed, pressed, dt,
-                 { score: board.score, combo: board.combo, accuracy: board.accuracy });
+                 { score: board.score, combo: board.combo, accuracy: board.accuracy,
+                   hits: board.totalJudged - board.counts.miss, misses: board.counts.miss });
     band.update(dt);
     drawBand(bandCtx, band, t);
 
-    overlay.classList.toggle('hidden', sync.state === 'live');
+    overlay.classList.toggle('hidden', sync.state === 'live' || done);
     if (sync.state === 'waiting') ovText.textContent = snap.currentTime < 1 ? '⏳ waiting for ad / video…' : '⏳ ad break…';
     if (sync.state === 'countdown') ovText.textContent = String(Math.ceil(sync.countdownLeftS));
     if (sync.state === 'paused') ovText.textContent = '⏸ paused';
 
     if (!done && (sync.state === 'ended' || (chart.finished && sync.state === 'live'))) {
       done = true;
-      onDone({ beatmapId: bm.beatmapId, score: Math.round(board.score), maxCombo: board.maxCombo,
-               grade: board.grade(), accuracy: board.accuracy, counts: { ...board.counts },
-               unranked: sync.unranked });
-      return;
+      const result: GameResult = {
+        beatmapId: bm.beatmapId, score: Math.round(board.score), maxCombo: board.maxCombo,
+        grade: board.grade(), accuracy: board.accuracy, counts: { ...board.counts },
+        unranked: sync.unranked,
+      };
+      const good = result.grade === 'S' || result.grade === 'A' || result.grade === 'B';
+      band.finale(good);
+      if (good) highway.effects.confetti(canvas.width, THEMES[settings.theme].noteColors);
+      // overlay the results on the live scene — band keeps performing behind the glass
+      showResultsOverlay(root.querySelector('.game-layout') as HTMLElement, result,
+                         handlers.onReplay, handlers.onExit);
     }
     raf = requestAnimationFrame(frame);
   }

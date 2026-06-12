@@ -2,7 +2,7 @@
 * { box-sizing: border-box; margin: 0; }
 body { background: #0c0e16; color: #e8eaf2; font-family: system-ui, sans-serif; }
 #app { height: 100vh; display: flex; flex-direction: column; }
-.game-layout { flex: 1; display: flex; min-height: 0; }
+.game-layout { flex: 1; display: flex; min-height: 0; position: relative; }
 .game-layout.mirrored { flex-direction: row-reverse; }
 .highway-col { width: 46%; position: relative; }
 .highway-col canvas { width: 100%; height: 100%; display: block; }
@@ -27,6 +27,27 @@ button { background: #06d6a0; color: #08251c; border: 0; border-radius: 8px;
 .chip.easy { background: #06d6a033; color: #06d6a0; }
 .chip.medium { background: #ffd16633; color: #ffd166; }
 .chip.hard { background: #ff5e7a33; color: #ff5e7a; }
+.results-overlay { position: absolute; inset: 0; z-index: 10; display: flex; align-items: center;
+                   justify-content: center; background: rgba(8,10,18,0.45);
+                   backdrop-filter: blur(5px); animation: fadein .45s ease; }
+.results-card { width: min(430px, 86%); background: rgba(20,23,35,0.88);
+                border: 1px solid rgba(255,255,255,0.12); border-radius: 18px;
+                padding: 26px 34px 30px; text-align: center;
+                box-shadow: 0 24px 70px rgba(0,0,0,0.55); animation: cardpop .5s cubic-bezier(.2,1.6,.4,1); }
+.results-card .grade { font-size: 92px; font-weight: 900; line-height: 1.05; }
+.results-card .grade-line { color: #c8cdda; margin-bottom: 8px; }
+.results-card .tag { font-size: 13px; margin: 2px 0; }
+.results-card .big-score { font-size: 38px; font-weight: 800; margin: 10px 0 14px; letter-spacing: 1px; }
+.results-card .stat-row { display: flex; justify-content: space-between; padding: 4px 2px;
+                          color: #9aa0b0; }
+.results-card .stat-row b { color: #e8eaf2; }
+.judgebar { display: flex; height: 10px; border-radius: 5px; overflow: hidden;
+            margin: 12px 0 6px; background: rgba(255,255,255,0.08); }
+.judgebar-legend { display: flex; justify-content: space-between; font-size: 11.5px; margin-bottom: 16px; }
+.results-buttons { display: flex; gap: 10px; justify-content: center; }
+.results-buttons .ghost { background: rgba(255,255,255,0.1); color: #e8eaf2; }
+@keyframes fadein { from { opacity: 0; } }
+@keyframes cardpop { from { transform: scale(.7); opacity: 0; } }
 .topbar { display: flex; gap: 8px; padding: 12px; }
 .topbar input { flex: 1; background: #1b1e2c; border: 1px solid #333a4f; color: inherit;
                 border-radius: 8px; padding: 8px 12px; }

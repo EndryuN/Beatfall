@@ -50,6 +50,22 @@ describe('Band', () => {
     expect(b.members.every(m => m.pose === 'frozen')).toBe(true);
   });
 
+  it('party finale keeps re-hyping the band', () => {
+    const b = new Band(['drummer', 'guitarist'], curves);
+    b.finale(true);
+    expect(b.members.every(m => m.pose === 'hype')).toBe(true);
+    b.update(2.0);                                 // hype decays...
+    expect(b.members.every(m => m.pose === 'hype')).toBe(true); // ...and immediately re-arms
+  });
+
+  it('defeat finale drops the band and keeps them down', () => {
+    const b = new Band(['drummer', 'guitarist'], curves);
+    b.finale(false);
+    expect(b.members.every(m => m.pose === 'fall')).toBe(true);
+    b.update(2.0);                                 // fall decays into a sulk, not a groove
+    expect(b.members.every(m => m.pose === 'frozen')).toBe(true);
+  });
+
   it('empty roster never throws', () => {
     const b = new Band([], curves);
     b.onWhiff(); b.onMiss(); b.onMilestone(); b.onComboBreak(); b.update(1);
