@@ -80,6 +80,8 @@ button { background: #06d6a0; color: #08251c; border: 0; border-radius: 8px;
 .editor-stats { color: #9aa0b0; font-size: 13px; line-height: 1.5; }
 .editor-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
 .editor-buttons .chip { padding: 6px 12px; font-size: 13px; }
+.editor-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px;
+                 border-top: 1px solid rgba(255,255,255,0.08); padding-top: 8px; }
 .editor-help { color: #777e90; font-size: 12px; line-height: 1.7; border-top: 1px solid rgba(255,255,255,0.08);
                padding-top: 8px; }
 .mode-on { outline: 2px solid #06d6a0; }

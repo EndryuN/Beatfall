@@ -68,6 +68,13 @@ export async function runEditor(root: HTMLElement, songId: string, mapName: stri
             <b>⏺ record (R)</b>: play the song and tap D F J K on the music — long presses become holds<br>
             <b>▶ preview</b>: just watch — notes are safe from stray clicks
           </div>
+          <div class="editor-legend">
+            <b style="color:#9aa0b0">lane waveforms:</b>
+            <span style="color:#ff5e7a">■ drums</span>
+            <span style="color:#4cc9f0">■ bass</span>
+            <span style="color:#ffd166">■ vocals</span>
+            <span style="color:#06d6a0">■ lead</span>
+          </div>
         </div>
       </div>
     </div>`;

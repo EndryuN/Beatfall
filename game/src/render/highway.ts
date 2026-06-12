@@ -112,36 +112,36 @@ export class Highway {
         const c = energy.stems[s];
         return c && c.some(v => v > 0.03) ? c : null;
       };
-      const left = [['drums', '#ff5e7a', 'D'], ['bass', '#4cc9f0', 'B']]
-        .map(([s, c, l]) => ({ curve: has(s), color: c, label: l }))
-        .filter(r => r.curve);
-      const right = [['vocals', '#ffd166', 'V'], ['other', '#06d6a0', 'L']]
-        .map(([s, c, l]) => ({ curve: has(s), color: c, label: l }))
-        .filter(r => r.curve);
-      const colW = Math.min(26, w * 0.055);
-      const drawRail = (rail: { curve: number[] | null; color: string; label: string },
-                        x0: number) => {
-        ctx.fillStyle = 'rgba(255,255,255,0.025)';
-        ctx.fillRect(x0, 0, colW, h);
-        ctx.strokeStyle = 'rgba(255,255,255,0.06)';
-        ctx.strokeRect(x0 + 0.5, 0, colW - 1, h);
-        for (let y = 0; y < h; y += 3) {
-          const t = songTime + (this.hitY - y) / scrollSpeed;
-          const v = sample(rail.curve!, t);
-          if (v <= 0.03) continue;
-          ctx.globalAlpha = 0.22 + v * 0.3;
-          ctx.fillStyle = rail.color;
-          const bw = v * (colW - 4);
-          ctx.fillRect(x0 + colW / 2 - bw / 2, y, bw, 3);
-        }
-        ctx.globalAlpha = 1;
+      // one stem per lane, stretched across the full lane width
+      const railDefs = [
+        { stem: 'drums', color: '#ff5e7a', label: 'DRUMS' },
+        { stem: 'bass', color: '#4cc9f0', label: 'BASS' },
+        { stem: 'vocals', color: '#ffd166', label: 'VOCALS' },
+        { stem: 'other', color: '#06d6a0', label: 'LEAD' },
+      ];
+      railDefs.forEach((r, lane) => {
+        const curve = has(r.stem);
+        const x0 = lane * laneW + 2;
+        const innerW = laneW - 4;
         ctx.textAlign = 'center';
         ctx.font = 'bold 10px system-ui';
-        ctx.fillStyle = rail.color;
-        ctx.fillText(rail.label, x0 + colW / 2, 12);
-      };
-      left.forEach((r, k) => drawRail(r, k * colW));
-      right.forEach((r, k) => drawRail(r, w - (k + 1) * colW));
+        ctx.fillStyle = r.color;
+        ctx.globalAlpha = curve ? 0.9 : 0.3;
+        ctx.fillText(r.label, x0 + innerW / 2, 12);
+        ctx.globalAlpha = 1;
+        if (!curve) return;
+        const cx = x0 + innerW / 2;
+        for (let y = 16; y < h; y += 3) {
+          const t = songTime + (this.hitY - y) / scrollSpeed;
+          const v = sample(curve, t);
+          if (v <= 0.03) continue;
+          ctx.globalAlpha = 0.14 + v * 0.20;
+          ctx.fillStyle = r.color;
+          const bw = v * (innerW - 6);
+          ctx.fillRect(cx - bw / 2, y, bw, 3);
+        }
+        ctx.globalAlpha = 1;
+      });
     }
 
     // hit line: breathing glow, swells with combo pops
