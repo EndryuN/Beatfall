@@ -35,7 +35,9 @@ export async function runGame(root: HTMLElement, bm: Beatmap,
 
   const chart = new Chart(bm);
   const clock = new SongClock();
-  const sync = new SyncMachine();
+  // No blocking count-in: maps have a 2 s note-free lead-in, and resume-from-pause
+  // rewinds 3 s of already-played ground — both give a natural runway.
+  const sync = new SyncMachine(0);
   const board = new Scoreboard();
   const mapper = new InputMapper(settings.keyCodes);
   const highway = new Highway(canvas, THEMES[settings.theme]);
@@ -79,13 +81,22 @@ export async function runGame(root: HTMLElement, bm: Beatmap,
   window.addEventListener('keydown', kd);
   window.addEventListener('keyup', ku);
 
+  const REWIND_ON_RESUME_S = 3;
   let last = performance.now();
   let raf = 0;
   let done = false;
   let wasLive = false;
+  let prevPlayerState = 'unstarted';
   function frame(now: number): void {
     const dt = (now - last) / 1000; last = now;
     const snap = yt.snapshot();
+    // Resuming from a pause mid-song: rewind a few seconds of already-played
+    // ground so the player re-enters with a runway instead of cold.
+    if (prevPlayerState === 'paused' && snap.state === 'playing' && snap.currentTime > 1) {
+      sync.ignoreNextJump();
+      yt.seekTo(Math.max(0, snap.currentTime - REWIND_ON_RESUME_S));
+    }
+    prevPlayerState = snap.state;
     sync.tick(snap, dt);
 
     // Song time only flows while the video's content is actually advancing

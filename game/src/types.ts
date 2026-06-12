@@ -8,7 +8,7 @@ export interface Beatmap {
 }
 export interface LibraryEntry {
   songId: string; title: string; channel: string; duration: number; thumbnail: string;
-  bpm?: number; status: 'queued' | 'processing' | 'ready' | 'error';
+  bpm?: number; status: 'queued' | 'processing' | 'ready' | 'error' | 'outdated';
   error?: string | null; difficulties: Difficulty[]; addedAt: string;
 }
 export interface JobStatus {

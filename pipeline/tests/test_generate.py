@@ -41,6 +41,24 @@ def test_holds_from_sustains():
     holds = [n for n in maps["hard"].notes if n.type == "hold"]
     assert holds and abs(holds[0].dur - 1.5) < 0.26  # dur snapped, roughly preserved
 
+def test_lead_in_no_notes_before_2s():
+    events = [_onset(0.5), _onset(1.0), _onset(1.5), _onset(3.0)]
+    for m in generate_beatmaps(_doc(events)):
+        assert all(n.t >= 2.0 for n in m.notes)
+
+def test_offgrid_onsets_filtered_as_noise():
+    # slot width 0.125s -> tolerance 43.75ms; an onset 60ms off the grid is noise
+    maps = {m.difficulty: m for m in generate_beatmaps(_doc([_onset(3.0), _onset(3.56)]))}
+    assert [n.t for n in maps["hard"].notes] == [3.0]
+
+def test_weak_onsets_filtered():
+    maps = {m.difficulty: m for m in generate_beatmaps(_doc([_onset(3.0, s=0.9), _onset(4.0, s=0.2)]))}
+    assert [n.t for n in maps["hard"].notes] == [3.0]
+
+def test_downbeats_get_outer_lanes():
+    maps = {m.difficulty: m for m in generate_beatmaps(_doc([_onset(2.0, s=0.9), _onset(2.5, s=0.9)]))}
+    assert {n.lane for n in maps["hard"].notes} == {0, 3}
+
 def test_deterministic():
     events = [_onset(round(0.125 * i, 3), s=0.5 + (i % 7) * 0.07) for i in range(160)]
     a = [m.model_dump_json() for m in generate_beatmaps(_doc(events))]

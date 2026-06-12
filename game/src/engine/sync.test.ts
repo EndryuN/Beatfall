@@ -25,6 +25,16 @@ describe('SyncMachine', () => {
     for (let i = 0; i < 8; i++) m.tick(buffering(31), 0.1);
     expect(m.state).toBe('waiting');
   });
+  it('game-initiated seek (rewind on resume) does not unrank', () => {
+    const m = new SyncMachine(); m.forceLive();
+    m.tick(playing(30), 0.1);
+    m.ignoreNextJump();
+    m.tick(playing(27), 0.1);              // our own 3 s rewind
+    expect(m.state).toBe('live');
+    expect(m.unranked).toBe(false);
+    m.tick(playing(90), 0.1);              // a real user seek afterwards still counts
+    expect(m.unranked).toBe(true);
+  });
   it('user seek marks run unranked but stays live', () => {
     const m = new SyncMachine(); m.forceLive();
     m.tick(playing(30), 0.1);

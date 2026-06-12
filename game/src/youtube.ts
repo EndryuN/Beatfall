@@ -50,5 +50,6 @@ export class YouTubePane {
   }
   play(): void { this.player?.playVideo?.(); }
   pause(): void { this.player?.pauseVideo?.(); }
+  seekTo(seconds: number): void { this.player?.seekTo?.(seconds, true); }
   destroy(): void { this.player?.destroy?.(); this.player = null; }
 }

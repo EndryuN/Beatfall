@@ -8,10 +8,14 @@ export class SyncMachine {
   countdownLeftS = 0;
   private lastTime = -1;
   private stallS = 0;
+  private suppressJump = false;
 
   constructor(private countdownS = 3, private stallThresholdS = 0.5, private seekJumpS = 1.5) {}
 
   forceLive(): void { this.state = 'live'; this.lastTime = -1; }
+
+  /** Call before a seek the game itself issues (e.g. rewind-on-resume) so it isn't treated as cheating. */
+  ignoreNextJump(): void { this.suppressJump = true; }
 
   private advancing(t: number): boolean {
     const adv = this.lastTime >= 0 && t > this.lastTime + 0.001;
@@ -35,7 +39,11 @@ export class SyncMachine {
       case 'live':
         if (p.state === 'ended') this.state = 'ended';
         else if (p.state === 'paused') this.state = 'paused';
-        else if (jumped && p.state === 'playing') { this.unranked = true; this.stallS = 0; }
+        else if (jumped && p.state === 'playing') {
+          if (this.suppressJump) this.suppressJump = false;
+          else this.unranked = true;
+          this.stallS = 0;
+        }
         else if ((p.state === 'playing' || p.state === 'buffering') && !adv) {
           this.stallS += dtS;
           if (this.stallS > this.stallThresholdS) { this.state = 'waiting'; this.stallS = 0; }

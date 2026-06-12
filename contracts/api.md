@@ -15,7 +15,8 @@ Otherwise enqueue → 202 `{ "songId": "yt:dQw4w9WgXcQ", "jobId": "j-1", "status
 404 if unknown job.
 
 ## GET /songs
-→ 200 `[ { "songId": "yt:...", "title": "...", "channel": "...", "duration": 213.0, "thumbnail": "...", "bpm": 113.2, "status": "queued|processing|ready|error", "error": null, "difficulties": ["easy","medium","hard"], "addedAt": "2026-06-11T10:00:00Z" } ]`
+→ 200 `[ { "songId": "yt:...", "title": "...", "channel": "...", "duration": 213.0, "thumbnail": "...", "bpm": 113.2, "status": "queued|processing|ready|error|outdated", "error": null, "difficulties": ["easy","medium","hard"], "addedAt": "2026-06-11T10:00:00Z" } ]`
+`outdated` = maps exist but came from an older generator version; POST /songs again to regenerate.
 
 ## GET /songs/{songId}/analysis
 → 200 AnalysisDoc (validates against analysis.schema.json). 404 if not ready.

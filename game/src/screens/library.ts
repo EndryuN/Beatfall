@@ -1,5 +1,5 @@
 import { api } from '../api';
-import { bestFor } from '../scores';
+import { bestForSong } from '../scores';
 import type { Difficulty, LibraryEntry } from '../types';
 import { videoIdOf } from '../types';
 
@@ -81,10 +81,11 @@ export function renderLibrary(root: HTMLElement,
     try { entries = await api.songs(); banner.textContent = ''; }
     catch { banner.textContent = '⚠ pipeline server offline (start it on laptop A / localhost:8000)'; }
     const entryHtml = entries.map(e => {
-      const best = e.difficulties.map(d => bestFor(`${e.songId}/g1/${d}/standard`)).find(Boolean);
+      const best = e.difficulties.map(d => bestForSong(e.songId, d)).find(Boolean);
       const chips = e.status === 'ready'
         ? e.difficulties.map(d => `<button class="chip ${d}" data-song="${e.songId}" data-diff="${d}">${d[0].toUpperCase()}</button>`).join('')
         : e.status === 'error' ? `<span style="color:#ff5e7a">${e.error ?? 'failed'}</span> <button class="chip easy" data-retry="${e.songId}">retry</button>`
+        : e.status === 'outdated' ? `<span style="color:#ffd166">map outdated</span> <button class="chip medium" data-retry="${e.songId}">remap</button>`
         : `<span style="color:#4cc9f0">⚙ processing…</span>`;
       return `<div class="row">
         <img src="${e.thumbnail}" alt="">

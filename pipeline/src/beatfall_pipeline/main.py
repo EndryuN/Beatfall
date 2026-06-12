@@ -48,7 +48,12 @@ def create_app(store: BeatmapStore | None = None, steps: PipelineSteps | None = 
 
     @app.get("/api/songs")
     def list_songs():
-        return store.list_songs()
+        entries = store.list_songs()
+        for e in entries:
+            # maps from an older generator are stale — surface it so the UI offers a remap
+            if e["status"] == "ready" and not store.get_beatmap(e["songId"], "hard", GENERATOR_VERSION):
+                e["status"] = "outdated"
+        return entries
 
     @app.get("/api/songs/{song_id}/analysis")
     def get_analysis(song_id: str):

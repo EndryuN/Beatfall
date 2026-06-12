@@ -1,11 +1,20 @@
 # pipeline/tests/test_jobs.py
 import json, time
 from pathlib import Path
+from beatfall_pipeline import GENERATOR_VERSION
 from beatfall_pipeline.jobs import JobQueue, PipelineSteps
 from beatfall_pipeline.models import AnalysisDoc, Beatmap, SongMeta
 from beatfall_pipeline.store import BeatmapStore
 
 FIX = Path(__file__).resolve().parents[2] / "contracts/fixtures"
+
+def fixture_beatmap(generator_version: int = GENERATOR_VERSION) -> Beatmap:
+    """Contract fixture is pinned at g1; tests stamp it with the requested generator version."""
+    bm = Beatmap.model_validate(json.loads((FIX / "fixture.beatmap.hard.json").read_text()))
+    return bm.model_copy(update={
+        "generatorVersion": generator_version,
+        "beatmapId": f"{bm.songId}/g{generator_version}/hard/standard",
+    })
 
 class FakeSteps(PipelineSteps):
     def __init__(self, fail_at: str | None = None):
@@ -17,7 +26,7 @@ class FakeSteps(PipelineSteps):
         if self.fail_at == "analyze": raise RuntimeError("boom")
         return AnalysisDoc.model_validate(json.loads((FIX / "fixture.analysis.json").read_text()))
     def generate(self, analysis):
-        return [Beatmap.model_validate(json.loads((FIX / "fixture.beatmap.hard.json").read_text()))]
+        return [fixture_beatmap()]
     def cleanup(self, audio_path): pass
 
 def _wait(q, job_id, until=("done", "error"), timeout=5.0):
@@ -34,7 +43,7 @@ def test_happy_path(tmp_path):
     job = q.submit("dQw4w9WgXcQ")
     j = _wait(q, job.id)
     assert j.stage == "done"
-    assert store.get_beatmap("yt:dQw4w9WgXcQ", "hard", 1) is not None
+    assert store.get_beatmap("yt:dQw4w9WgXcQ", "hard", GENERATOR_VERSION) is not None
 
 def test_failure_reported(tmp_path):
     q = JobQueue(BeatmapStore(tmp_path), FakeSteps(fail_at="fetch")); q.start()
