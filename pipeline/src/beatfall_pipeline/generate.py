@@ -16,14 +16,14 @@ FILL_STRENGTH = 0.25       # synthetic fills are first to go when the global cap
 #   medium = full melody + groove (8ths, hats, lead-instrument accents)
 #   hard   = melody + full kit + bass + chords on big kicks + stream fills when loud
 DIFF = {
-    "easy":   {"density": 1.5, "slot": 4, "floor": 0.45, "min_hold": 1.0,
-               "energy": (0.25, 0.65), "hats": False, "chord_strength": None, "window_beats": 4,
+    "easy":   {"density": 2.0, "slot": 4, "floor": 0.40, "min_hold": 0.9,
+               "energy": (0.30, 0.70), "hats": False, "chord_strength": None, "window_beats": 4,
                "stems": {"drums", "vocals"}, "fill": False},
     "medium": {"density": 4.0, "slot": 2, "floor": 0.30, "min_hold": 0.6,
                "energy": (0.35, 0.85), "hats": True, "chord_strength": 0.92, "window_beats": 1,
                "stems": {"drums", "vocals", "other"}, "fill": False},
-    "hard":   {"density": 6.5, "slot": 1, "floor": 0.20, "min_hold": 0.4,
-               "energy": (0.50, 0.80), "hats": True, "chord_strength": 0.85, "window_beats": 1,
+    "hard":   {"density": 5.5, "slot": 1, "floor": 0.25, "min_hold": 0.45,
+               "energy": (0.45, 0.80), "hats": True, "chord_strength": 0.88, "window_beats": 1,
                "stems": {"drums", "vocals", "other", "bass"}, "fill": True},
 }
 DENSITY = {d: c["density"] for d, c in DIFF.items()}       # kept for external reference
