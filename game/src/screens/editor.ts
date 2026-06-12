@@ -5,7 +5,7 @@ import { Highway } from '../render/highway';
 import { THEMES } from '../render/theme';
 import { drawVisualizer } from '../render/visualizer';
 import { loadSettings } from '../settings-store';
-import { YouTubePane } from '../youtube';
+import { keepKeyboardFocus, YouTubePane } from '../youtube';
 import type { AnalysisLite, BeatmapNote } from '../types';
 import { videoIdOf } from '../types';
 import type { RuntimeNote } from '../engine/chart';
@@ -76,6 +76,10 @@ export async function runEditor(root: HTMLElement, songId: string, mapName: stri
   const clock = new SongClock();
   const yt = new YouTubePane();
   await yt.mount(root.querySelector('#yt-mount') as HTMLElement, videoIdOf(songId));
+  const unfocus = keepKeyboardFocus();
+  // buttons must not hold focus, or Space "clicks" them instead of play/pausing
+  root.querySelectorAll<HTMLButtonElement>('.editor-buttons button').forEach(b =>
+    b.addEventListener('click', () => b.blur()));
 
   const duration = analysis?.duration ?? 600;
   const grid = buildGrid(analysis?.beatGrid, duration);
@@ -253,6 +257,7 @@ export async function runEditor(root: HTMLElement, songId: string, mapName: stri
     cancelAnimationFrame(raf);
     window.removeEventListener('keydown', onKeyDown);
     window.removeEventListener('keyup', onKeyUp);
+    unfocus();
     yt.destroy();
   };
 }

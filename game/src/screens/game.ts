@@ -9,7 +9,7 @@ import { Highway } from '../render/highway';
 import { drawVisualizer } from '../render/visualizer';
 import { THEMES } from '../render/theme';
 import { loadSettings } from '../settings-store';
-import { YouTubePane } from '../youtube';
+import { keepKeyboardFocus, YouTubePane } from '../youtube';
 import type { AnalysisLite, Beatmap } from '../types';
 import { videoIdOf } from '../types';
 import { showResultsOverlay } from './results';
@@ -68,6 +68,7 @@ export async function runGame(root: HTMLElement, bm: Beatmap,
   const ovText = root.querySelector('#ov-text') as HTMLElement;
   yt.onEmbedBlocked = () => { ovText.textContent = 'This video blocks embedding 😢'; overlay.classList.remove('hidden'); };
   await yt.mount(root.querySelector('#yt-mount') as HTMLElement, videoIdOf(bm.songId));
+  const unfocus = keepKeyboardFocus();   // clicking the video must not eat DFJK/Esc
 
   const pauseMenu = root.querySelector('#pause-menu') as HTMLElement;
   function togglePause(): void {
@@ -212,5 +213,5 @@ export async function runGame(root: HTMLElement, bm: Beatmap,
   raf = requestAnimationFrame(frame);
 
   return () => { cancelAnimationFrame(raf); window.removeEventListener('keydown', kd);
-                 window.removeEventListener('keyup', ku); yt.destroy(); };
+                 window.removeEventListener('keyup', ku); unfocus(); yt.destroy(); };
 }

@@ -21,6 +21,17 @@ const STATE_MAP: Record<number, PlayerState> = {
   [-1]: 'unstarted', 0: 'ended', 1: 'playing', 2: 'paused', 3: 'buffering', 5: 'cued',
 };
 
+/** The iframe swallows keyboard input the moment it's clicked — kick focus back to the page
+    so game/editor hotkeys keep working. Returns an unsubscribe function. */
+export function keepKeyboardFocus(): () => void {
+  const onBlur = () => setTimeout(() => {
+    const ae = document.activeElement as HTMLElement | null;
+    if (ae && ae.tagName === 'IFRAME') ae.blur();
+  }, 0);
+  window.addEventListener('blur', onBlur);
+  return () => window.removeEventListener('blur', onBlur);
+}
+
 export class YouTubePane {
   private player: any = null;
   /** error 101/150 = embedding disabled by uploader */
