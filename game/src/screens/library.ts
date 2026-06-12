@@ -67,8 +67,8 @@ export function renderLibrary(root: HTMLElement,
     return rows.join('');
   }
 
-  async function startAdd(videoId: string): Promise<void> {
-    const r = await api.addSong(videoId);
+  async function startAdd(videoId: string, force = false): Promise<void> {
+    const r = await api.addSong(videoId, force);
     if (r.jobId) activeJobs.set(r.jobId, r.songId);
     showingResults = false;
     await refresh();
@@ -84,10 +84,12 @@ export function renderLibrary(root: HTMLElement,
       const best = e.difficulties.map(d => bestForSong(e.songId, d)).find(Boolean);
       const DIFF_ORDER: Record<string, number> = { easy: 0, medium: 1, hard: 2 };
       const ordered = [...e.difficulties].sort((a, b) => DIFF_ORDER[a] - DIFF_ORDER[b]);
+      const manage = `<button class="chip medium" data-remap="${e.songId}" title="re-analyze with the current generator">⟳</button>
+                      <button class="chip hard" data-delete="${e.songId}" title="remove from library">✕</button>`;
       const chips = e.status === 'ready'
-        ? ordered.map(d => `<button class="chip ${d}" data-song="${e.songId}" data-diff="${d}">${d[0].toUpperCase()}</button>`).join('')
-        : e.status === 'error' ? `<span style="color:#ff5e7a">${e.error ?? 'failed'}</span> <button class="chip easy" data-retry="${e.songId}">retry</button>`
-        : e.status === 'outdated' ? `<span style="color:#ffd166">map outdated</span> <button class="chip medium" data-retry="${e.songId}">remap</button>`
+        ? ordered.map(d => `<button class="chip ${d}" data-song="${e.songId}" data-diff="${d}">${d[0].toUpperCase()}</button>`).join('') + manage
+        : e.status === 'error' ? `<span style="color:#ff5e7a">${e.error ?? 'failed'}</span> <button class="chip easy" data-retry="${e.songId}">retry</button>${manage}`
+        : e.status === 'outdated' ? `<span style="color:#ffd166">map outdated</span> <button class="chip medium" data-retry="${e.songId}">remap</button>${manage}`
         : `<span style="color:#4cc9f0">⚙ processing…</span>`;
       return `<div class="row">
         <img src="${e.thumbnail}" alt="">
@@ -100,6 +102,14 @@ export function renderLibrary(root: HTMLElement,
       b.addEventListener('click', () => onPlay(b.dataset.song!, b.dataset.diff as Difficulty)));
     list.querySelectorAll<HTMLButtonElement>('[data-retry]').forEach(b =>
       b.addEventListener('click', () => startAdd(videoIdOf(b.dataset.retry!))));
+    list.querySelectorAll<HTMLButtonElement>('[data-remap]').forEach(b =>
+      b.addEventListener('click', () => startAdd(videoIdOf(b.dataset.remap!), true)));
+    list.querySelectorAll<HTMLButtonElement>('[data-delete]').forEach(b =>
+      b.addEventListener('click', async () => {
+        if (!confirm('Remove this song from the library? (Scores stay; remapping re-adds it.)')) return;
+        await api.deleteSong(b.dataset.delete!);
+        refresh();
+      }));
     list.querySelectorAll<HTMLButtonElement>('[data-job-retry]').forEach(b =>
       b.addEventListener('click', () => {
         const f = failedJobs.get(b.dataset.jobRetry!);

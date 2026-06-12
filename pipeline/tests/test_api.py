@@ -42,6 +42,23 @@ def test_old_generator_maps_flagged_outdated(tmp_path):
     assert entries[0]["status"] == "outdated"
     assert c.get("/api/songs/yt:dQw4w9WgXcQ/beatmaps/hard").status_code == 404
 
+def test_force_remap_reprocesses_ready_song(tmp_path):
+    c = _client(tmp_path)
+    c.post("/api/songs", json={"videoId": "dQw4w9WgXcQ"})
+    time.sleep(0.3)
+    r = c.post("/api/songs", json={"videoId": "dQw4w9WgXcQ"})            # idempotent path
+    assert r.status_code == 200 and r.json()["status"] == "ready"
+    r = c.post("/api/songs", json={"videoId": "dQw4w9WgXcQ", "force": True})  # explicit remap
+    assert r.status_code == 202 and "jobId" in r.json()
+
+def test_delete_song_endpoint(tmp_path):
+    c = _client(tmp_path)
+    c.post("/api/songs", json={"videoId": "dQw4w9WgXcQ"})
+    time.sleep(0.3)
+    assert c.delete("/api/songs/yt:dQw4w9WgXcQ").status_code == 204
+    assert c.get("/api/songs").json() == []
+    assert c.delete("/api/songs/yt:dQw4w9WgXcQ").status_code == 404
+
 def test_404s(tmp_path):
     c = _client(tmp_path)
     assert c.get("/api/jobs/j-999").status_code == 404

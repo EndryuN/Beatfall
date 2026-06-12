@@ -8,6 +8,7 @@ from .store import BeatmapStore
 
 class AddSongBody(BaseModel):
     videoId: str
+    force: bool = False   # true = remap even if current-version maps exist
 
 def create_app(store: BeatmapStore | None = None, steps: PipelineSteps | None = None) -> FastAPI:
     if store is None:
@@ -30,13 +31,18 @@ def create_app(store: BeatmapStore | None = None, steps: PipelineSteps | None = 
     @app.post("/api/songs")
     def add_song(body: AddSongBody):
         song_id = f"yt:{body.videoId}"
-        if store.get_analysis(song_id, ANALYSIS_VERSION) and \
+        if not body.force and store.get_analysis(song_id, ANALYSIS_VERSION) and \
            store.get_beatmap(song_id, "hard", GENERATOR_VERSION):
             return {"songId": song_id, "status": "ready"}
         job = queue.submit(body.videoId)
         from fastapi.responses import JSONResponse
         return JSONResponse(status_code=202,
                             content={"songId": song_id, "jobId": job.id, "status": "queued"})
+
+    @app.delete("/api/songs/{song_id}", status_code=204)
+    def delete_song(song_id: str):
+        if not store.delete(song_id):
+            raise HTTPException(404)
 
     @app.get("/api/jobs/{job_id}")
     def get_job(job_id: str):

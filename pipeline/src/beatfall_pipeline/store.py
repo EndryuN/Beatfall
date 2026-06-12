@@ -39,6 +39,18 @@ class BeatmapStore:
         }
         self._write_index(idx)
 
+    def delete(self, song_id: str) -> bool:
+        import shutil
+        idx = self._index()
+        existed = song_id in idx
+        idx.pop(song_id, None)
+        self._write_index(idx)
+        d = self.root / "songs" / _safe(song_id)
+        if d.exists():
+            shutil.rmtree(d, ignore_errors=True)
+            existed = True
+        return existed
+
     def get_analysis(self, song_id: str, version: int) -> Optional[AnalysisDoc]:
         p = self.root / "songs" / _safe(song_id) / "analysis.json"
         if not p.exists():

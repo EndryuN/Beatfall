@@ -11,6 +11,15 @@ def _fixtures():
     bm = Beatmap.model_validate(json.loads((FIX / "fixture.beatmap.hard.json").read_text()))
     return analysis, [bm]
 
+def test_delete_song(tmp_path):
+    store = BeatmapStore(tmp_path)
+    analysis, maps = _fixtures()
+    store.save(analysis, maps)
+    assert store.delete("yt:dQw4w9WgXcQ") is True
+    assert store.get_analysis("yt:dQw4w9WgXcQ", 1) is None
+    assert store.list_songs() == []
+    assert store.delete("yt:dQw4w9WgXcQ") is False   # already gone
+
 def test_save_then_get(tmp_path):
     store = BeatmapStore(tmp_path)
     analysis, maps = _fixtures()
