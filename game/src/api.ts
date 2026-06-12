@@ -1,4 +1,4 @@
-import type { Beatmap, Difficulty, JobStatus, LibraryEntry, SearchCandidate } from './types';
+import type { AnalysisLite, Beatmap, Difficulty, JobStatus, LibraryEntry, SearchCandidate } from './types';
 
 const BASE = 'http://localhost:8000/api';
 
@@ -18,6 +18,7 @@ export const api = {
   job: (id: string) => get<JobStatus>(`/jobs/${id}`),
   songs: () => get<LibraryEntry[]>(`/songs`),
   beatmap: (songId: string, d: Difficulty) => get<Beatmap>(`/songs/${songId}/beatmaps/${d}`),
+  analysis: (songId: string) => get<AnalysisLite>(`/songs/${songId}/analysis`),
   /** true when the pipeline server is reachable */
   alive: async () => { try { await get('/songs'); return true; } catch { return false; } },
 };

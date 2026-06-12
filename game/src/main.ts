@@ -14,7 +14,10 @@ function goLibrary(): void {
   renderLibrary(app, goGame, () => renderSettings(app, goLibrary));
 }
 async function goGame(songId: string, d: Difficulty): Promise<void> {
-  const bm = await api.beatmap(songId, d);
-  teardown = await runGame(app, bm, r => { teardown = null; renderResults(app, r, goLibrary); });
+  const [bm, analysis] = await Promise.all([
+    api.beatmap(songId, d),
+    api.analysis(songId).catch(() => null),   // band still grooves (default duo) without it
+  ]);
+  teardown = await runGame(app, bm, r => { teardown = null; renderResults(app, r, goLibrary); }, analysis);
 }
 goLibrary();

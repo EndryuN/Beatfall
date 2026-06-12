@@ -17,4 +17,11 @@ export interface JobStatus {
   progress: number; error?: string | null;
 }
 export interface SearchCandidate { videoId: string; title: string; channel: string; duration: number; thumbnail: string; }
+export type RosterMember = 'drummer' | 'bassist' | 'singer' | 'guitarist';
+/** The slice of analysis.json the game consumes (band layer). */
+export interface AnalysisLite {
+  bpm: number;
+  roster: RosterMember[];
+  energyCurves: { sampleRateHz: number; stems: Record<string, number[]> };
+}
 export const videoIdOf = (songId: string): string => songId.replace(/^yt:/, '');

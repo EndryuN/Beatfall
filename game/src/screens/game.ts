@@ -1,3 +1,5 @@
+import { Band } from '../band/band';
+import { drawBand } from '../band/render';
 import { Chart } from '../engine/chart';
 import { SongClock } from '../engine/clock';
 import { judgeDelta, HIT_WINDOW_MS, Scoreboard } from '../engine/judge';
@@ -7,7 +9,7 @@ import { Highway } from '../render/highway';
 import { THEMES } from '../render/theme';
 import { loadSettings } from '../settings-store';
 import { YouTubePane } from '../youtube';
-import type { Beatmap } from '../types';
+import type { AnalysisLite, Beatmap } from '../types';
 import { videoIdOf } from '../types';
 
 export interface GameResult {
@@ -16,7 +18,8 @@ export interface GameResult {
 }
 
 export async function runGame(root: HTMLElement, bm: Beatmap,
-                              onDone: (r: GameResult) => void): Promise<() => void> {
+                              onDone: (r: GameResult) => void,
+                              analysis: AnalysisLite | null = null): Promise<() => void> {
   const settings = loadSettings();
   root.innerHTML = `
     <div class="game-layout ${settings.highwaySide === 'right' ? 'mirrored' : ''}">
@@ -26,12 +29,16 @@ export async function runGame(root: HTMLElement, bm: Beatmap,
       </div>
       <div class="side-col">
         <div class="video-box"><div id="yt-mount"></div></div>
-        <div class="stage-box">🥁 🎸 🎤</div>
+        <div class="stage-box"><canvas id="band-canvas"></canvas></div>
         <div class="hud"><span id="hud-score">0</span><span id="hud-combo"></span><span id="hud-acc">100%</span></div>
       </div>
     </div>`;
-  const canvas = root.querySelector('canvas')!;
+  const canvas = root.querySelector('.highway-col canvas') as HTMLCanvasElement;
   canvas.width = canvas.clientWidth; canvas.height = canvas.clientHeight;
+  const bandCanvas = root.querySelector('#band-canvas') as HTMLCanvasElement;
+  bandCanvas.width = bandCanvas.clientWidth; bandCanvas.height = bandCanvas.clientHeight;
+  const bandCtx = bandCanvas.getContext('2d')!;
+  const band = new Band(analysis?.roster ?? ['drummer', 'guitarist'], analysis?.energyCurves ?? null);
 
   const chart = new Chart(bm);
   const clock = new SongClock();
@@ -58,11 +65,17 @@ export async function runGame(root: HTMLElement, bm: Beatmap,
     if (sync.state !== 'live') return;
     if (down) {
       const n = chart.findHittable(lane, t, HIT_WINDOW_MS / 1000);
-      if (!n) { board.breakCombo(); return; }                       // whiff
+      if (!n) {                                                     // whiff
+        const hadBigCombo = board.combo >= 50;
+        board.breakCombo();
+        if (hadBigCombo) band.onComboBreak(); else band.onWhiff();
+        return;
+      }
       const j = judgeDelta((t - n.t) * 1000);
       if (!j) return;
       chart.markHit(n);
       board.hit(j);
+      if (board.combo > 0 && board.combo % 50 === 0) band.onMilestone();
       if (n.type === 'hold') holding[lane] = n;
       highway.effects.burst(highway.laneX(lane), highway.hitY, THEMES[settings.theme].judgeColors[j]);
       highway.effects.popup(highway.laneX(lane), highway.hitY - 60, j, THEMES[settings.theme].judgeColors[j]);
@@ -71,7 +84,11 @@ export async function runGame(root: HTMLElement, bm: Beatmap,
       if (h?.state === 'holding') {
         const frac = (t - h.t) / (h.dur ?? 1);
         h.state = frac >= 0.95 ? 'hit' : frac >= 0.5 ? 'hit' : 'dropped';
-        if (frac < 0.5) board.miss();
+        if (frac < 0.5) {
+          const hadBigCombo = board.combo >= 50;
+          board.miss();
+          if (hadBigCombo) band.onComboBreak(); else band.onMiss();
+        }
         holding[lane] = null;
       }
     }
@@ -114,7 +131,9 @@ export async function runGame(root: HTMLElement, bm: Beatmap,
     if (sync.state === 'live') {
       if (!wasLive) chart.dropBefore(t - HIT_WINDOW_MS / 1000); // forgive notes lost to the gap
       for (const _missed of chart.sweepMissed(t)) {
+        const hadBigCombo = board.combo >= 50;
         board.miss();
+        if (hadBigCombo) band.onComboBreak(); else band.onMiss();
         highway.effects.popup(highway.laneX(_missed.lane), highway.hitY - 60, 'miss',
                               THEMES[settings.theme].judgeColors.miss);
       }
@@ -126,6 +145,8 @@ export async function runGame(root: HTMLElement, bm: Beatmap,
     }
     wasLive = sync.state === 'live';
     highway.draw(chart.visible(t, 2.5), t, settings.scrollSpeed, pressed, dt);
+    band.update(dt);
+    drawBand(bandCtx, band, t);
 
     overlay.classList.toggle('hidden', sync.state === 'live');
     if (sync.state === 'waiting') ovText.textContent = snap.currentTime < 1 ? '⏳ waiting for ad / video…' : '⏳ ad break…';
