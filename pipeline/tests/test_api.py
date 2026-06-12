@@ -59,6 +59,21 @@ def test_delete_song_endpoint(tmp_path):
     assert c.get("/api/songs").json() == []
     assert c.delete("/api/songs/yt:dQw4w9WgXcQ").status_code == 404
 
+def test_custom_map_endpoints(tmp_path):
+    c = _client(tmp_path)
+    c.post("/api/songs", json={"videoId": "dQw4w9WgXcQ"})
+    time.sleep(0.3)
+    notes = [{"t": 2.0, "lane": 0, "type": "tap"}, {"t": 3.0, "lane": 1, "type": "hold", "dur": 1.0}]
+    r = c.put("/api/songs/yt:dQw4w9WgXcQ/custom/My Map", json={"notes": notes})
+    assert r.status_code == 200 and r.json()["mode"] == "custom" and r.json()["difficulty"] == "my-map"
+    r = c.get("/api/songs/yt:dQw4w9WgXcQ/beatmaps/my-map")
+    assert r.status_code == 200 and len(r.json()["notes"]) == 2
+    entry = c.get("/api/songs").json()[0]
+    assert any(m["key"] == "my-map" for m in entry["maps"])
+    assert c.put("/api/songs/yt:dQw4w9WgXcQ/custom/easy", json={"notes": []}).status_code == 400
+    assert c.delete("/api/songs/yt:dQw4w9WgXcQ/custom/my-map").status_code == 204
+    assert c.get("/api/songs/yt:dQw4w9WgXcQ/beatmaps/my-map").status_code == 404
+
 def test_404s(tmp_path):
     c = _client(tmp_path)
     assert c.get("/api/jobs/j-999").status_code == 404

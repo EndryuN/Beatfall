@@ -1,4 +1,4 @@
-import type { AnalysisLite, Beatmap, Difficulty, JobStatus, LibraryEntry, SearchCandidate } from './types';
+import type { AnalysisLite, Beatmap, BeatmapNote, JobStatus, LibraryEntry, SearchCandidate } from './types';
 
 const BASE = 'http://localhost:8000/api';
 
@@ -21,8 +21,19 @@ export const api = {
   },
   job: (id: string) => get<JobStatus>(`/jobs/${id}`),
   songs: () => get<LibraryEntry[]>(`/songs`),
-  beatmap: (songId: string, d: Difficulty) => get<Beatmap>(`/songs/${songId}/beatmaps/${d}`),
+  beatmap: (songId: string, key: string) => get<Beatmap>(`/songs/${songId}/beatmaps/${key}`),
   analysis: (songId: string) => get<AnalysisLite>(`/songs/${songId}/analysis`),
+  saveCustom: async (songId: string, name: string, notes: BeatmapNote[]) => {
+    const r = await fetch(`${BASE}/songs/${songId}/custom/${encodeURIComponent(name)}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notes }) });
+    if (!r.ok) throw new Error(`saveCustom ${r.status}`);
+    return r.json() as Promise<Beatmap>;
+  },
+  deleteCustom: async (songId: string, key: string) => {
+    const r = await fetch(`${BASE}/songs/${songId}/custom/${encodeURIComponent(key)}`, { method: 'DELETE' });
+    if (!r.ok && r.status !== 404) throw new Error(`deleteCustom ${r.status}`);
+  },
   /** true when the pipeline server is reachable */
   alive: async () => { try { await get('/songs'); return true; } catch { return false; } },
 };

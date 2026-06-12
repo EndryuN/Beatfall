@@ -5,6 +5,12 @@ function all(): Record<string, BestScore> {
   try { return JSON.parse(localStorage.getItem(KEY) ?? '{}'); } catch { return {}; }
 }
 export function bestFor(beatmapId: string): BestScore | null { return all()[beatmapId] ?? null; }
+/** Best score for any map of a song: custom maps have a stable id, generated maps span versions. */
+export function bestForMap(songId: string, key: string, mode: 'standard' | 'custom'): BestScore | null {
+  if (mode === 'custom') return bestFor(`${songId}/custom/${key}`);
+  return bestForSong(songId, key);
+}
+
 /** Best score for a song+difficulty across all generator versions (maps get regenerated over time). */
 export function bestForSong(songId: string, difficulty: string): BestScore | null {
   const scores = all();

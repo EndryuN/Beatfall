@@ -35,20 +35,22 @@ export class Highway {
   }
 
   draw(notes: RuntimeNote[], songTime: number, scrollSpeed: number,
-       pressed: boolean[], dt: number, hud: HudState): void {
+       pressed: boolean[], dt: number, hud?: HudState): void {
     const { ctx, canvas, theme } = this;
     const w = canvas.width, h = canvas.height;
     const laneW = w / this.laneCount;
     this.time += dt;
-    if (hud.combo > this.lastCombo) this.comboPulse = 1;
-    this.comboPulse = Math.max(0, this.comboPulse - dt * 5);
-    this.lastCombo = hud.combo;
-    if (hud.hits > this.lastHits) this.hitPulse = 1;
-    this.hitPulse = Math.max(0, this.hitPulse - dt * 4);
-    this.lastHits = hud.hits;
-    if (hud.misses > this.lastMisses) this.missPulse = 1;
-    this.missPulse = Math.max(0, this.missPulse - dt * 3);
-    this.lastMisses = hud.misses;
+    if (hud) {
+      if (hud.combo > this.lastCombo) this.comboPulse = 1;
+      this.comboPulse = Math.max(0, this.comboPulse - dt * 5);
+      this.lastCombo = hud.combo;
+      if (hud.hits > this.lastHits) this.hitPulse = 1;
+      this.hitPulse = Math.max(0, this.hitPulse - dt * 4);
+      this.lastHits = hud.hits;
+      if (hud.misses > this.lastMisses) this.missPulse = 1;
+      this.missPulse = Math.max(0, this.missPulse - dt * 3);
+      this.lastMisses = hud.misses;
+    }
 
     // backdrop: theme base + a soft glow pooling around the hit line
     ctx.fillStyle = theme.bg;
@@ -119,7 +121,7 @@ export class Highway {
 
     this.effects.update(dt);
     this.effects.draw(ctx);
-    this.drawHud(hud);
+    if (hud) this.drawHud(hud);
   }
 
   private drawHud(hud: HudState): void {

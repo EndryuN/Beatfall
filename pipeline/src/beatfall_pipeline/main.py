@@ -10,6 +10,9 @@ class AddSongBody(BaseModel):
     videoId: str
     force: bool = False   # true = remap even if current-version maps exist
 
+class CustomMapBody(BaseModel):
+    notes: list[dict]
+
 def create_app(store: BeatmapStore | None = None, steps: PipelineSteps | None = None) -> FastAPI:
     if store is None:
         store = BeatmapStore(Path(__file__).resolve().parents[3] / "data")
@@ -43,6 +46,22 @@ def create_app(store: BeatmapStore | None = None, steps: PipelineSteps | None = 
     def delete_song(song_id: str):
         if not store.delete(song_id):
             raise HTTPException(404)
+
+    @app.put("/api/songs/{song_id}/custom/{name}")
+    def save_custom_map(song_id: str, name: str, body: CustomMapBody):
+        try:
+            bm = store.save_custom(song_id, name, body.notes)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        return bm.model_dump(exclude_none=True)
+
+    @app.delete("/api/songs/{song_id}/custom/{name}", status_code=204)
+    def delete_custom_map(song_id: str, name: str):
+        try:
+            if not store.delete_custom(song_id, name):
+                raise HTTPException(404)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
 
     @app.get("/api/jobs/{job_id}")
     def get_job(job_id: str):

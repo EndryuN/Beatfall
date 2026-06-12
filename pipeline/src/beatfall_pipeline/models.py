@@ -41,8 +41,8 @@ class Beatmap(BaseModel):
     beatmapId: str
     songId: str
     generatorVersion: int
-    difficulty: Difficulty
-    mode: Literal["standard"] = "standard"
+    difficulty: str = Field(min_length=1)   # easy|medium|hard, or the custom map's name
+    mode: Literal["standard", "custom"] = "standard"
     laneCount: Literal[4] = 4
     notes: list[Note]
 

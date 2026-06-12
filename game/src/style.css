@@ -57,6 +57,34 @@ button { background: #06d6a0; color: #08251c; border: 0; border-radius: 8px;
 .results-buttons .ghost { background: rgba(255,255,255,0.1); color: #e8eaf2; }
 @keyframes fadein { from { opacity: 0; } }
 @keyframes cardpop { from { transform: scale(.7); opacity: 0; } }
+/* expandable song rows */
+.song-head { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.song-head img { width: 64px; border-radius: 4px; }
+.song-details { margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px; }
+.map-list { max-height: 176px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+.map-row { display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.04);
+           border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 8px 12px;
+           min-height: 38px; }
+.map-row .chip { min-width: 76px; text-align: center; }
+.map-row .grow { flex: 1; }
+.song-actions { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.song-actions input, .song-actions select { background: #11141f; border: 1px solid #333a4f;
+           color: inherit; border-radius: 8px; padding: 6px 10px; font-size: 13px; }
+.song-actions .grow { flex: 1; }
+
+/* editor */
+.editor-panel { flex: 1; background: linear-gradient(180deg, #1b1e2c, #161926); border-radius: 8px;
+                padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; min-height: 0;
+                overflow-y: auto; }
+.editor-title { font-size: 16px; }
+.editor-stats { color: #9aa0b0; font-size: 13px; line-height: 1.5; }
+.editor-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+.editor-buttons .chip { padding: 6px 12px; font-size: 13px; }
+.editor-help { color: #777e90; font-size: 12px; line-height: 1.7; border-top: 1px solid rgba(255,255,255,0.08);
+               padding-top: 8px; }
+.rec-on { outline: 2px solid #ff5e7a; animation: recblink 1s infinite; }
+@keyframes recblink { 50% { outline-color: transparent; } }
+
 .topbar { display: flex; gap: 8px; padding: 12px; }
 .topbar input { flex: 1; background: #1b1e2c; border: 1px solid #333a4f; color: inherit;
                 border-radius: 8px; padding: 8px 12px; }
