@@ -100,29 +100,48 @@ export class Highway {
       }
     }
 
-    // audio ribbons (editor): drums energy on the left edge, vocals on the right,
-    // time-aligned with the scrolling notes — bulges show where the music hits
+    // per-stem waveform rails (editor): each instrument gets its own time-aligned
+    // column — drums+bass stacked left, vocals+lead right. Bulges = the music hitting.
     if (energy) {
-      const ribbon = w * 0.11;
-      const sample = (stem: string, t: number): number => {
-        const c = energy.stems[stem];
-        if (!c || t < 0) return 0;
-        const i = Math.min(c.length - 1, Math.round(t * energy.sampleRateHz));
-        return i >= 0 ? c[i] : 0;
+      const sample = (curve: number[], t: number): number => {
+        if (t < 0) return 0;
+        const i = Math.min(curve.length - 1, Math.round(t * energy.sampleRateHz));
+        return i >= 0 ? curve[i] : 0;
       };
-      for (let y = 0; y < h; y += 3) {
-        const t = songTime + (this.hitY - y) / scrollSpeed;
-        const vL = sample('drums', t);
-        const vR = sample('vocals', t) || sample('other', t);
-        if (vL > 0.03) {
-          ctx.fillStyle = 'rgba(255,94,122,0.28)';
-          ctx.fillRect(0, y, vL * ribbon, 3);
+      const has = (s: string) => {
+        const c = energy.stems[s];
+        return c && c.some(v => v > 0.03) ? c : null;
+      };
+      const left = [['drums', '#ff5e7a', 'D'], ['bass', '#4cc9f0', 'B']]
+        .map(([s, c, l]) => ({ curve: has(s), color: c, label: l }))
+        .filter(r => r.curve);
+      const right = [['vocals', '#ffd166', 'V'], ['other', '#06d6a0', 'L']]
+        .map(([s, c, l]) => ({ curve: has(s), color: c, label: l }))
+        .filter(r => r.curve);
+      const colW = Math.min(26, w * 0.055);
+      const drawRail = (rail: { curve: number[] | null; color: string; label: string },
+                        x0: number) => {
+        ctx.fillStyle = 'rgba(255,255,255,0.025)';
+        ctx.fillRect(x0, 0, colW, h);
+        ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+        ctx.strokeRect(x0 + 0.5, 0, colW - 1, h);
+        for (let y = 0; y < h; y += 3) {
+          const t = songTime + (this.hitY - y) / scrollSpeed;
+          const v = sample(rail.curve!, t);
+          if (v <= 0.03) continue;
+          ctx.globalAlpha = 0.22 + v * 0.3;
+          ctx.fillStyle = rail.color;
+          const bw = v * (colW - 4);
+          ctx.fillRect(x0 + colW / 2 - bw / 2, y, bw, 3);
         }
-        if (vR > 0.03) {
-          ctx.fillStyle = 'rgba(255,209,102,0.26)';
-          ctx.fillRect(w - vR * ribbon, y, vR * ribbon, 3);
-        }
-      }
+        ctx.globalAlpha = 1;
+        ctx.textAlign = 'center';
+        ctx.font = 'bold 10px system-ui';
+        ctx.fillStyle = rail.color;
+        ctx.fillText(rail.label, x0 + colW / 2, 12);
+      };
+      left.forEach((r, k) => drawRail(r, k * colW));
+      right.forEach((r, k) => drawRail(r, w - (k + 1) * colW));
     }
 
     // hit line: breathing glow, swells with combo pops
