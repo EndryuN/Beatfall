@@ -168,10 +168,40 @@ export async function runEditor(root: HTMLElement, songId: string, mapName: stri
   });
   recBtn.addEventListener('click', () => setRecording(!recording));
 
-  vizCanvas.addEventListener('click', ev => {
+  // waveform scrubbing: click jumps, drag slides the song under the playhead
+  let scrub: { startX: number; startT: number; moved: boolean } | null = null;
+  let scrubT: number | null = null;          // instant visual preview while seeks catch up
+  let lastSeekMs = 0;
+  vizCanvas.style.cursor = 'grab';
+  vizCanvas.addEventListener('pointerdown', ev => {
+    vizCanvas.setPointerCapture(ev.pointerId);
+    scrub = { startX: ev.clientX, startT: songTimeNow(), moved: false };
+    vizCanvas.style.cursor = 'grabbing';
+  });
+  vizCanvas.addEventListener('pointermove', ev => {
+    if (!scrub) return;
+    const dx = ev.clientX - scrub.startX;
+    if (Math.abs(dx) > 4) scrub.moved = true;
+    if (!scrub.moved) return;
+    const w = vizCanvas.getBoundingClientRect().width;
+    const t = Math.max(0, scrub.startT - (dx / w) * VIZ_SPAN_S);   // drag left = pull future in
+    scrubT = t;
+    const now = performance.now();
+    if (now - lastSeekMs > 90) { lastSeekMs = now; seekTo(t); }
+  });
+  vizCanvas.addEventListener('pointerup', ev => {
+    if (!scrub) return;
     const rect = vizCanvas.getBoundingClientRect();
-    const frac = (ev.clientX - rect.left) / rect.width;
-    seekTo(songTimeNow() + (frac - VIZ_PLAYHEAD) * VIZ_SPAN_S);
+    if (scrub.moved) {
+      const dx = ev.clientX - scrub.startX;
+      seekTo(Math.max(0, scrub.startT - (dx / rect.width) * VIZ_SPAN_S));
+    } else {
+      const frac = (ev.clientX - rect.left) / rect.width;
+      seekTo(scrub.startT + (frac - VIZ_PLAYHEAD) * VIZ_SPAN_S);
+    }
+    scrub = null;
+    setTimeout(() => { scrubT = null; }, 250);   // hold the preview until the seek lands
+    vizCanvas.style.cursor = 'grab';
   });
 
   function onKeyDown(e: KeyboardEvent): void {
@@ -233,7 +263,7 @@ export async function runEditor(root: HTMLElement, songId: string, mapName: stri
     const dt = (now - last) / 1000; last = now;
     const s = yt.snapshot();
     if (s.state === 'playing') clock.reconcile(s.currentTime, now);
-    const t = songTimeNow();
+    const t = scrubT ?? songTimeNow();
 
     const visible: RuntimeNote[] = notes
       .filter(n => n.t + (n.dur ?? 0) > t - 1.5 && n.t < t + 2.5)
