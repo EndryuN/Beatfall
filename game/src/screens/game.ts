@@ -29,7 +29,15 @@ export async function runGame(root: HTMLElement, bm: Beatmap,
     <div class="game-layout ${settings.highwaySide === 'right' ? 'mirrored' : ''}">
       <div class="highway-col">
         <canvas></canvas>
-        <div class="overlay"><div id="ov-text"></div></div>
+        <button class="pause-btn" id="pause-btn" title="pause (Esc)">⏸</button>
+        <div class="overlay">
+          <div id="ov-text"></div>
+          <div id="pause-menu" class="hidden">
+            <button id="pm-resume">▶ resume</button>
+            <button id="pm-restart" class="ghost">↻ restart song</button>
+            <button id="pm-quit" class="ghost">✕ quit to library</button>
+          </div>
+        </div>
       </div>
       <div class="side-col">
         <div class="video-box"><div id="yt-mount"></div></div>
@@ -56,6 +64,17 @@ export async function runGame(root: HTMLElement, bm: Beatmap,
   yt.onEmbedBlocked = () => { ovText.textContent = 'This video blocks embedding 😢'; overlay.classList.remove('hidden'); };
   await yt.mount(root.querySelector('#yt-mount') as HTMLElement, videoIdOf(bm.songId));
 
+  const pauseMenu = root.querySelector('#pause-menu') as HTMLElement;
+  function togglePause(): void {
+    if (done) return;
+    if (sync.state === 'paused') yt.play();
+    else if (sync.state === 'live' || sync.state === 'countdown') yt.pause();
+  }
+  (root.querySelector('#pause-btn') as HTMLElement).addEventListener('click', togglePause);
+  root.querySelector('#pm-resume')!.addEventListener('click', () => yt.play());
+  root.querySelector('#pm-restart')!.addEventListener('click', handlers.onReplay);
+  root.querySelector('#pm-quit')!.addEventListener('click', handlers.onExit);
+
   const pressed = [false, false, false, false];
   const holding: (ReturnType<Chart['findHittable']> | null)[] = [null, null, null, null];
   const offS = settings.latencyOffsetMs / 1000;   // one offset, applied to judging AND rendering
@@ -63,6 +82,10 @@ export async function runGame(root: HTMLElement, bm: Beatmap,
 
   function onKey(e: KeyboardEvent, down: boolean): void {
     if (done) return;
+    if (e.code === 'Escape' && down && !e.repeat) {     // Esc toggles pause
+      togglePause();
+      return;
+    }
     const lane = mapper.laneFor(e.code);
     if (lane === null || e.repeat) return;
     pressed[lane] = down;
@@ -159,6 +182,7 @@ export async function runGame(root: HTMLElement, bm: Beatmap,
     drawBand(bandCtx, band, t);
 
     overlay.classList.toggle('hidden', sync.state === 'live' || done);
+    pauseMenu.classList.toggle('hidden', sync.state !== 'paused' || done);
     if (sync.state === 'waiting') ovText.textContent = snap.currentTime < 1 ? '⏳ waiting for ad / video…' : '⏳ ad break…';
     if (sync.state === 'countdown') ovText.textContent = String(Math.ceil(sync.countdownLeftS));
     if (sync.state === 'paused') ovText.textContent = '⏸ paused';

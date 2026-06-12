@@ -17,6 +17,13 @@ body { background: #0c0e16; color: #e8eaf2; font-family: system-ui, sans-serif; 
            flex-direction: column; gap: 8px; background: rgba(0,0,0,0.55); font-size: 28px;
            text-align: center; }
 .overlay.hidden { display: none; }
+.pause-btn { position: absolute; top: 10px; left: 10px; z-index: 5;
+             background: rgba(255,255,255,0.08); color: #e8eaf2; border: 1px solid rgba(255,255,255,0.15);
+             border-radius: 8px; padding: 4px 12px; font-size: 15px; }
+.pause-btn:hover { background: rgba(255,255,255,0.18); }
+#pause-menu { display: flex; flex-direction: column; gap: 10px; min-width: 220px; margin-top: 12px; }
+#pause-menu.hidden { display: none; }
+#pause-menu .ghost { background: rgba(255,255,255,0.1); color: #e8eaf2; }
 button { background: #06d6a0; color: #08251c; border: 0; border-radius: 8px;
          padding: 8px 16px; font-weight: 700; cursor: pointer; }
 .row { display: flex; align-items: center; gap: 10px; background: #1b1e2c;
