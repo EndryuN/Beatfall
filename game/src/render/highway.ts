@@ -35,7 +35,7 @@ export class Highway {
   }
 
   draw(notes: RuntimeNote[], songTime: number, scrollSpeed: number,
-       pressed: boolean[], dt: number, hud?: HudState): void {
+       pressed: boolean[], dt: number, hud?: HudState, beatGrid?: number[]): void {
     const { ctx, canvas, theme } = this;
     const w = canvas.width, h = canvas.height;
     const laneW = w / this.laneCount;
@@ -73,6 +73,26 @@ export class Highway {
         g.addColorStop(1, 'rgba(255,255,255,0)');
         ctx.fillStyle = g;
         ctx.fillRect(i * laneW + 2, this.hitY - h * 0.4, laneW - 4, h * 0.4);
+      }
+    }
+
+    // beat timing rails (editor): bar lines bright + numbered, beats faint
+    if (beatGrid) {
+      const tTop = songTime + this.hitY / scrollSpeed;
+      const tBottom = songTime - (h - this.hitY) / scrollSpeed;
+      ctx.textAlign = 'left';
+      ctx.font = '11px system-ui';
+      for (let i = 0; i < beatGrid.length; i++) {
+        const bt = beatGrid[i];
+        if (bt < tBottom - 0.5 || bt > tTop + 0.5) continue;
+        const y = this.noteY(bt, songTime, scrollSpeed);
+        const isBar = i % 4 === 0;
+        ctx.fillStyle = isBar ? 'rgba(255,255,255,0.20)' : 'rgba(255,255,255,0.07)';
+        ctx.fillRect(4, y - (isBar ? 1 : 0.5), w - 8, isBar ? 2 : 1);
+        if (isBar) {
+          ctx.fillStyle = 'rgba(255,255,255,0.45)';
+          ctx.fillText(String(i / 4 + 1), 6, y - 4);
+        }
       }
     }
 
