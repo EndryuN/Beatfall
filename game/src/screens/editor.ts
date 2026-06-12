@@ -337,7 +337,7 @@ export async function runEditor(root: HTMLElement, songId: string, mapName: stri
       .filter(n => n.t + (n.dur ?? 0) > t - 1.5 && n.t < t + 2.5)
       .map(n => ({ ...n, state: 'pending' as const }));
     highway.draw(visible, t, settings.scrollSpeed, [false, false, false, false], dt,
-                 undefined, beats);
+                 undefined, beats, analysis?.energyCurves ?? null);
     drawVisualizer(vizCtx, analysis?.energyCurves ?? null, t);
 
     const beatNo = nearestIdx(beats as number[], t);

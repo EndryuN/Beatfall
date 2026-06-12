@@ -1,6 +1,9 @@
 import type { RuntimeNote } from '../engine/chart';
+import type { AnalysisLite } from '../types';
 import type { Theme } from './theme';
 import { Effects } from './effects';
+
+type EnergyCurves = AnalysisLite['energyCurves'];
 
 export interface HudState {
   score: number; combo: number; accuracy: number; hits: number; misses: number;
@@ -35,7 +38,8 @@ export class Highway {
   }
 
   draw(notes: RuntimeNote[], songTime: number, scrollSpeed: number,
-       pressed: boolean[], dt: number, hud?: HudState, beatGrid?: number[]): void {
+       pressed: boolean[], dt: number, hud?: HudState, beatGrid?: number[],
+       energy?: EnergyCurves | null): void {
     const { ctx, canvas, theme } = this;
     const w = canvas.width, h = canvas.height;
     const laneW = w / this.laneCount;
@@ -92,6 +96,31 @@ export class Highway {
         if (isBar) {
           ctx.fillStyle = 'rgba(255,255,255,0.45)';
           ctx.fillText(String(i / 4 + 1), 6, y - 4);
+        }
+      }
+    }
+
+    // audio ribbons (editor): drums energy on the left edge, vocals on the right,
+    // time-aligned with the scrolling notes — bulges show where the music hits
+    if (energy) {
+      const ribbon = w * 0.11;
+      const sample = (stem: string, t: number): number => {
+        const c = energy.stems[stem];
+        if (!c || t < 0) return 0;
+        const i = Math.min(c.length - 1, Math.round(t * energy.sampleRateHz));
+        return i >= 0 ? c[i] : 0;
+      };
+      for (let y = 0; y < h; y += 3) {
+        const t = songTime + (this.hitY - y) / scrollSpeed;
+        const vL = sample('drums', t);
+        const vR = sample('vocals', t) || sample('other', t);
+        if (vL > 0.03) {
+          ctx.fillStyle = 'rgba(255,94,122,0.28)';
+          ctx.fillRect(0, y, vL * ribbon, 3);
+        }
+        if (vR > 0.03) {
+          ctx.fillStyle = 'rgba(255,209,102,0.26)';
+          ctx.fillRect(w - vR * ribbon, y, vR * ribbon, 3);
         }
       }
     }
