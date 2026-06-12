@@ -22,8 +22,9 @@ class FakeSteps(PipelineSteps):
     def fetch(self, video_id, progress_cb):
         if self.fail_at == "fetch": raise RuntimeError("boom: video unavailable")
         return Path("fake.wav"), SongMeta(videoId=video_id, title="Fake", duration=10.0)
-    def analyze(self, audio_path, meta):
+    def analyze(self, audio_path, meta, stage_cb=None):
         if self.fail_at == "analyze": raise RuntimeError("boom")
+        if stage_cb: stage_cb("analyzing")
         doc = AnalysisDoc.model_validate(json.loads((FIX / "fixture.analysis.json").read_text()))
         return doc.model_copy(update={"analysisVersion": ANALYSIS_VERSION})  # fixture is pinned at v1
     def generate(self, analysis):

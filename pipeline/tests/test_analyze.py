@@ -57,6 +57,29 @@ def test_onset_drum_classification():
     assert _drum_near(doc, 1.5) == "hat" and _drum_near(doc, 2.5) == "hat"
     assert _drum_near(doc, 3.0) == "snare" and _drum_near(doc, 4.0) == "snare"
 
+def test_analyze_with_real_stems():
+    """Demucs path: onsets from the drums stem, sustains from vocals and bass,
+    roster from per-stem activity."""
+    dur = 6.0
+    n = int(dur * SR)
+    drums = np.zeros(n, dtype=np.float32)
+    for t in (1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0):
+        _burst(drums, SR, t, [60, 90])
+    vocals = concat(silence(1.0), tone(440, 2.0), silence(3.0))           # MIDI 69
+    bass = concat(silence(3.0), tone(82.41, 1.5), silence(1.5))          # E2 = MIDI 40
+    other = np.zeros(n, dtype=np.float32)
+    stems = {"drums": drums, "bass": bass[:n], "vocals": vocals[:n], "other": other}
+    mix = (drums + stems["bass"] + stems["vocals"]).astype(np.float32)
+    doc = analyze_audio(mix, SR, SongMeta(videoId="dQw4w9WgXcQ", title="t", duration=dur),
+                        stems=stems)
+    vocal_sus = [e for e in doc.events if e.kind == "sustain" and e.stem == "vocals"]
+    bass_sus = [e for e in doc.events if e.kind == "sustain" and e.stem == "bass"]
+    assert vocal_sus and abs((vocal_sus[0].pitch or 0) - 69) < 1.5
+    assert bass_sus and abs((bass_sus[0].pitch or 0) - 40) < 1.5
+    assert set(doc.energyCurves.stems) == {"drums", "bass", "vocals", "other"}
+    assert "drummer" in doc.roster and "singer" in doc.roster and "bassist" in doc.roster
+    assert "guitarist" not in doc.roster                      # "other" stem is silent
+
 def test_energy_curves_and_roster():
     y = click_track(bpm=120, seconds=10)
     doc = analyze_audio(y, SR, META)

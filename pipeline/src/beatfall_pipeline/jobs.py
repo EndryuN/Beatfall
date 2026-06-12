@@ -9,7 +9,7 @@ from .store import BeatmapStore
 
 class PipelineSteps(Protocol):
     def fetch(self, video_id: str, progress_cb) -> tuple[Path, SongMeta]: ...
-    def analyze(self, audio_path: Path, meta: SongMeta) -> AnalysisDoc: ...
+    def analyze(self, audio_path: Path, meta: SongMeta, stage_cb=None) -> AnalysisDoc: ...
     def generate(self, analysis: AnalysisDoc) -> list[Beatmap]: ...
     def cleanup(self, audio_path: Path) -> None: ...
 
@@ -64,7 +64,8 @@ class JobQueue:
                 job.set(stage="downloading", progress=0.0)
                 audio, meta = self.steps.fetch(job.video_id, lambda p: job.set(progress=p * 0.4))
                 job.set(stage="analyzing", progress=0.5)
-                analysis = self.steps.analyze(audio, meta)
+                analysis = self.steps.analyze(audio, meta,
+                                              stage_cb=lambda s: job.set(stage=s))
                 job.set(stage="generating", progress=0.85)
                 maps = self.steps.generate(analysis)
                 self.store.save(analysis, maps)

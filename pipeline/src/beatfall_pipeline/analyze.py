@@ -5,6 +5,7 @@ from .models import AnalysisDoc, EnergyCurves, Event, SongMeta
 
 HOP = 512
 CURVE_HZ = 15.0
+STEM_ACTIVITY_RMS = 0.005   # absolute RMS below which a stem counts as silent
 
 def _energy_curve(y: np.ndarray, sr: int, duration: float) -> list[float]:
     rms = librosa.feature.rms(y=y, hop_length=HOP)[0]
@@ -15,8 +16,7 @@ def _energy_curve(y: np.ndarray, sr: int, duration: float) -> list[float]:
     return np.interp(dst_t, src_t, rms).clip(0, 1).round(4).tolist()
 
 def _classify_onsets(y: np.ndarray, sr: int, onset_times) -> list[str]:
-    """Kick / snare / hat by where the spectral energy sits at each onset.
-    Classified on the full mix — at a drum hit, the mix is drum-dominated."""
+    """Kick / snare / hat by where the spectral energy sits at each onset."""
     n_fft = 2048
     S = np.abs(librosa.stft(y, n_fft=n_fft, hop_length=HOP))
     freqs = librosa.fft_frequencies(sr=sr, n_fft=n_fft)
@@ -37,8 +37,11 @@ def _classify_onsets(y: np.ndarray, sr: int, onset_times) -> list[str]:
             labels.append("snare")
     return labels
 
-def _sustains(y_harm: np.ndarray, sr: int, stem: str) -> list[Event]:
-    f0, voiced, prob = librosa.pyin(y_harm, fmin=80, fmax=800, sr=sr, hop_length=HOP)
+def _sustains(y_src: np.ndarray, sr: int, stem: str,
+              fmin: float = 80, fmax: float = 800) -> list[Event]:
+    if float(np.sqrt(np.mean(y_src ** 2))) < STEM_ACTIVITY_RMS:
+        return []                                   # silent stem: pyin on noise hallucinates
+    f0, voiced, prob = librosa.pyin(y_src, fmin=fmin, fmax=fmax, sr=sr, hop_length=HOP)
     hop_s = HOP / sr
     events: list[Event] = []
     start = None
@@ -58,35 +61,55 @@ def _sustains(y_harm: np.ndarray, sr: int, stem: str) -> list[Event]:
             start = None
     return events
 
-def analyze_audio(y: np.ndarray, sr: int, meta: SongMeta) -> AnalysisDoc:
+def _onset_events(y_drums: np.ndarray, sr: int, classify_on: np.ndarray) -> list[Event]:
+    onset_env = librosa.onset.onset_strength(y=y_drums, sr=sr, hop_length=HOP)
+    onset_frames = librosa.onset.onset_detect(onset_envelope=onset_env, sr=sr, hop_length=HOP)
+    peak = onset_env.max() or 1.0
+    onset_times = librosa.frames_to_time(onset_frames, sr=sr, hop_length=HOP)
+    labels = _classify_onsets(classify_on, sr, onset_times)
+    return [Event(t=round(float(t), 3), stem="drums", kind="onset",
+                  strength=round(float(onset_env[f] / peak), 3), drum=label)
+            for t, f, label in zip(onset_times, onset_frames, labels)]
+
+def _active(y_stem: np.ndarray) -> bool:
+    return float(np.sqrt(np.mean(y_stem ** 2))) >= STEM_ACTIVITY_RMS
+
+def analyze_audio(y: np.ndarray, sr: int, meta: SongMeta,
+                  stems: dict[str, np.ndarray] | None = None) -> AnalysisDoc:
+    """stems = real separated stems (Demucs). Without them, fall back to HPSS."""
     duration = len(y) / sr
     tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr, hop_length=HOP)
     bpm = float(np.atleast_1d(tempo)[0])
     beat_grid = librosa.frames_to_time(beat_frames, sr=sr, hop_length=HOP).round(3).tolist()
 
-    y_harm, y_perc = librosa.effects.hpss(y)
+    if stems is not None:
+        events = _onset_events(stems["drums"], sr, classify_on=stems["drums"])
+        events += _sustains(stems["vocals"], sr, stem="vocals", fmin=80, fmax=1000)
+        events += _sustains(stems["bass"], sr, stem="bass", fmin=40, fmax=250)
+        curves = {name: _energy_curve(s, sr, duration) for name, s in stems.items()}
+        roster: list = []
+        if _active(stems["drums"]):
+            roster.append("drummer")
+        if _active(stems["bass"]):
+            roster.append("bassist")
+        if _active(stems["vocals"]):
+            roster.append("singer")
+        if _active(stems["other"]):
+            roster.append("guitarist")
+    else:
+        # HPSS mode: percussive ≈ drums, harmonic ≈ everything melodic ("other")
+        y_harm, y_perc = librosa.effects.hpss(y)
+        events = _onset_events(y_perc, sr, classify_on=y)
+        events += _sustains(y_harm, sr, stem="other")
+        curves = {"drums": _energy_curve(y_perc, sr, duration),
+                  "other": _energy_curve(y_harm, sr, duration)}
+        roster = []
+        if np.mean(curves["drums"]) > 0.05:
+            roster.append("drummer")
+        if np.mean(curves["other"]) > 0.05:
+            roster.append("guitarist")
 
-    onset_env = librosa.onset.onset_strength(y=y_perc, sr=sr, hop_length=HOP)
-    onset_frames = librosa.onset.onset_detect(onset_envelope=onset_env, sr=sr, hop_length=HOP)
-    peak = onset_env.max() or 1.0
-    onset_times = librosa.frames_to_time(onset_frames, sr=sr, hop_length=HOP)
-    drum_labels = _classify_onsets(y, sr, onset_times)
-    events = [Event(t=round(float(t), 3), stem="drums", kind="onset",
-                    strength=round(float(onset_env[f] / peak), 3), drum=label)
-              for t, f, label in zip(onset_times, onset_frames, drum_labels)]
-    # HPSS mode: melodic sustains come from the harmonic component, labeled "other".
-    # (Demucs stretch task relabels real vocals/bass stems — same Event shape.)
-    events += _sustains(y_harm, sr, stem="other")
     events.sort(key=lambda e: e.t)
-
-    curves = {"drums": _energy_curve(y_perc, sr, duration),
-              "other": _energy_curve(y_harm, sr, duration)}
-    roster: list = []
-    if np.mean(curves["drums"]) > 0.05:
-        roster.append("drummer")
-    if np.mean(curves["other"]) > 0.05:
-        roster.append("guitarist")
-
     return AnalysisDoc(
         songId=f"yt:{meta.videoId}", analysisVersion=ANALYSIS_VERSION,
         title=meta.title, channel=meta.channel, duration=round(duration, 3),
