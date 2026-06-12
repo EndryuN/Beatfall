@@ -139,6 +139,7 @@ def analyze_audio(y: np.ndarray, sr: int, meta: SongMeta,
     bpm = float(np.atleast_1d(tempo)[0])
     beat_grid = librosa.frames_to_time(beat_frames, sr=sr, hop_length=HOP).round(3).tolist()
 
+    lead_instrument = None
     if stems is not None:
         events = _onset_events(stems["drums"], sr, classify_on=stems["drums"])
         melodic, transcribed = _melodic_events(stems, sr)
@@ -155,7 +156,12 @@ def analyze_audio(y: np.ndarray, sr: int, meta: SongMeta,
         if _active(stems["vocals"]):
             roster.append("singer")
         if _active(stems["other"]):
-            roster.append("guitarist")
+            try:
+                from .instruments import detect_lead_instrument
+                lead_instrument = detect_lead_instrument(stems["other"], sr)
+            except Exception as e:
+                log.warning("instrument tagging unavailable: %s", e)
+            roster.append("violinist" if lead_instrument == "strings" else "guitarist")
     else:
         # HPSS mode: percussive ≈ drums, harmonic ≈ everything melodic ("other")
         y_harm, y_perc = librosa.effects.hpss(y)
@@ -175,6 +181,6 @@ def analyze_audio(y: np.ndarray, sr: int, meta: SongMeta,
         songId=f"yt:{meta.videoId}", analysisVersion=ANALYSIS_VERSION,
         title=meta.title, channel=meta.channel, duration=round(duration, 3),
         thumbnail=meta.thumbnail, bpm=round(bpm, 2), beatGrid=beat_grid,
-        roster=roster, events=events,
+        roster=roster, events=events, leadInstrument=lead_instrument,
         energyCurves=EnergyCurves(sampleRateHz=CURVE_HZ, stems=curves),
     )

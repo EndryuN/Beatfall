@@ -12,6 +12,7 @@ export interface HudState {
 
 export class Highway {
   readonly effects = new Effects();
+  leadLabel = 'LEAD';   // renamed when instrument tagging knows better (VIOLIN, PIANO…)
   private ctx: CanvasRenderingContext2D;
   private time = 0;
   private lastCombo = 0;
@@ -117,7 +118,7 @@ export class Highway {
         { stem: 'drums', color: '#ff5e7a', label: 'DRUMS' },
         { stem: 'bass', color: '#4cc9f0', label: 'BASS' },
         { stem: 'vocals', color: '#ffd166', label: 'VOCALS' },
-        { stem: 'other', color: '#06d6a0', label: 'LEAD' },
+        { stem: 'other', color: '#06d6a0', label: this.leadLabel },
       ];
       railDefs.forEach((r, lane) => {
         const curve = has(r.stem);

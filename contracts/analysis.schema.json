@@ -15,9 +15,11 @@
     "beatGrid": { "type": "array", "items": { "type": "number", "minimum": 0 } },
     "roster": {
       "type": "array",
-      "items": { "enum": ["drummer", "bassist", "singer", "guitarist"] },
+      "items": { "enum": ["drummer", "bassist", "singer", "guitarist", "violinist"] },
       "uniqueItems": true
     },
+    "leadInstrument": { "enum": ["strings", "guitar", "piano", "synth", "brass"],
+                        "description": "optional: what plays lead in the 'other' stem" },
     "events": { "type": "array", "items": { "$ref": "#/$defs/event" } },
     "energyCurves": {
       "type": "object",

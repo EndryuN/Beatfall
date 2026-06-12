@@ -21,13 +21,14 @@ export interface JobStatus {
   progress: number; error?: string | null;
 }
 export interface SearchCandidate { videoId: string; title: string; channel: string; duration: number; thumbnail: string; }
-export type RosterMember = 'drummer' | 'bassist' | 'singer' | 'guitarist';
+export type RosterMember = 'drummer' | 'bassist' | 'singer' | 'guitarist' | 'violinist';
 /** The slice of analysis.json the game consumes (band layer). */
 export interface AnalysisLite {
   bpm: number;
   duration: number;
   beatGrid: number[];
   roster: RosterMember[];
+  leadInstrument?: 'strings' | 'guitar' | 'piano' | 'synth' | 'brass' | null;
   energyCurves: { sampleRateHz: number; stems: Record<string, number[]> };
 }
 export const videoIdOf = (songId: string): string => songId.replace(/^yt:/, '');

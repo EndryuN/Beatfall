@@ -27,7 +27,8 @@ class AnalysisDoc(BaseModel):
     thumbnail: str = ""
     bpm: float
     beatGrid: list[float]
-    roster: list[Literal["drummer", "bassist", "singer", "guitarist"]]
+    roster: list[Literal["drummer", "bassist", "singer", "guitarist", "violinist"]]
+    leadInstrument: Optional[Literal["strings", "guitar", "piano", "synth", "brass"]] = None
     events: list[Event]
     energyCurves: EnergyCurves
 

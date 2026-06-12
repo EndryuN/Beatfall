@@ -3,6 +3,7 @@ import { POSE_DUR } from './band';
 
 const SHIRT: Record<string, string> = {
   drummer: '#ff5e7a', guitarist: '#06d6a0', bassist: '#4cc9f0', singer: '#ffd166',
+  violinist: '#b14cff',
 };
 const SKIN = '#f1c9a5';
 const OUTLINE = '#1b1226';
@@ -179,6 +180,29 @@ function drawRolePropAndArms(ctx: CanvasRenderingContext2D, m: MemberState, band
       ctx.beginPath();
       ctx.moveTo(-bodyW2(s), armY); ctx.lineTo(-16 * s, -bodyH * 0.78);
       ctx.moveTo(bodyW2(s), armY); ctx.lineTo(6 * s + swing * 4 * s, -bodyH * 0.42);
+      ctx.stroke();
+      break;
+    }
+    case 'violinist': {
+      // violin tucked at the shoulder, bow sawing with the music
+      ctx.save();
+      ctx.rotate(-0.45);
+      ctx.fillStyle = '#8a5a2b';
+      ctx.beginPath(); ctx.ellipse(7 * s, headY + 14 * s, 9 * s, 5.5 * s, 0, 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke();
+      ctx.lineWidth = 2.5 * s;                    // violin neck
+      ctx.beginPath(); ctx.moveTo(14 * s, headY + 12 * s); ctx.lineTo(24 * s, headY + 8 * s); ctx.stroke();
+      ctx.restore();
+      const saw = swing * 8 * s;                  // bow stroke
+      ctx.lineWidth = 2 * s;
+      ctx.beginPath();
+      ctx.moveTo(-2 * s + saw, headY + 2 * s);
+      ctx.lineTo(18 * s + saw, headY + 16 * s);
+      ctx.stroke();
+      ctx.lineWidth = 3.5 * s;                    // arms: neck hand + bow hand
+      ctx.beginPath();
+      ctx.moveTo(-bodyW2(s), armY); ctx.lineTo(16 * s, headY + 10 * s);
+      ctx.moveTo(bodyW2(s), armY); ctx.lineTo(10 * s + saw, headY + 10 * s);
       ctx.stroke();
       break;
     }

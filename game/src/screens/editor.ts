@@ -59,6 +59,7 @@ export async function runEditor(root: HTMLElement, songId: string, mapName: stri
           <div class="editor-buttons">
             <button id="ed-save" class="chip easy">💾 save</button>
             <button id="ed-test" class="chip medium">▶ save & test</button>
+            <button id="ed-waves" class="chip medium mode-on">〰 waveforms (W)</button>
             <button id="ed-exit" class="chip medium">← library</button>
           </div>
           <div class="editor-help">
@@ -85,6 +86,10 @@ export async function runEditor(root: HTMLElement, songId: string, mapName: stri
   vizCanvas.width = vizCanvas.clientWidth; vizCanvas.height = vizCanvas.clientHeight;
   const vizCtx = vizCanvas.getContext('2d')!;
   const highway = new Highway(canvas, THEMES[settings.theme]);
+  const LEAD_NAME: Record<string, string> = {
+    strings: 'VIOLIN', guitar: 'GUITAR', piano: 'PIANO', synth: 'SYNTH', brass: 'BRASS',
+  };
+  highway.leadLabel = LEAD_NAME[analysis?.leadInstrument ?? ''] ?? 'LEAD';
   const mapper = new InputMapper(settings.keyCodes);
   const clock = new SongClock();
   const yt = new YouTubePane();
@@ -125,6 +130,14 @@ export async function runEditor(root: HTMLElement, songId: string, mapName: stri
   }
   (Object.keys(modeBtns) as Mode[]).forEach(m =>
     modeBtns[m].addEventListener('click', () => setMode(m)));
+
+  let showWaves = true;
+  const wavesBtn = root.querySelector('#ed-waves') as HTMLButtonElement;
+  function toggleWaves(): void {
+    showWaves = !showWaves;
+    wavesBtn.classList.toggle('mode-on', showWaves);
+  }
+  wavesBtn.addEventListener('click', toggleWaves);
 
   function pushUndo(): void {
     undoStack.push(JSON.stringify(notes));
@@ -288,6 +301,7 @@ export async function runEditor(root: HTMLElement, songId: string, mapName: stri
       seekBeats((e.code === 'ArrowRight' ? 1 : -1) * (e.shiftKey ? 4 : 1)); return; }
     if (e.code === 'KeyR' && !e.repeat) { setMode(mode === 'record' ? 'edit' : 'record'); return; }
     if (e.code === 'KeyE' && !e.repeat) { setMode(mode === 'edit' ? 'preview' : 'edit'); return; }
+    if (e.code === 'KeyW' && !e.repeat) { toggleWaves(); return; }
     if (e.code === 'KeyZ' && (e.ctrlKey || e.metaKey)) {
       const prev = undoStack.pop();
       if (prev) { notes = JSON.parse(prev); lastTouched = null; }
@@ -344,7 +358,7 @@ export async function runEditor(root: HTMLElement, songId: string, mapName: stri
       .filter(n => n.t + (n.dur ?? 0) > t - 1.5 && n.t < t + 2.5)
       .map(n => ({ ...n, state: 'pending' as const }));
     highway.draw(visible, t, settings.scrollSpeed, [false, false, false, false], dt,
-                 undefined, beats, analysis?.energyCurves ?? null);
+                 undefined, beats, showWaves ? analysis?.energyCurves ?? null : null);
     drawVisualizer(vizCtx, analysis?.energyCurves ?? null, t);
 
     const beatNo = nearestIdx(beats as number[], t);
