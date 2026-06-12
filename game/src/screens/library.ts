@@ -123,7 +123,11 @@ export function renderLibrary(root: HTMLElement, h: LibraryHandlers): void {
     await refresh();
   }
 
+  let lastRenderKey = '';
   function render(): void {
+    // never yank the DOM out from under someone typing a map name (the poll re-renders)
+    const ae = document.activeElement as HTMLElement | null;
+    if (ae && list.contains(ae) && (ae.tagName === 'INPUT' || ae.tagName === 'SELECT')) return;
     const entryHtml = lastEntries.map(e => {
       const status = e.status === 'ready'
         ? `<span style="color:#666;font-size:12px">${expanded.has(e.songId) ? '▾' : '▸'} ${sortedMaps(e).length} maps</span>`
@@ -139,6 +143,9 @@ export function renderLibrary(root: HTMLElement, h: LibraryHandlers): void {
         ${expanded.has(e.songId) && (e.status === 'ready' || e.status === 'outdated') ? detailsPanel(e) : ''}
       </div>`;
     }).join('');
+    const key = jobHtmlCache + entryHtml;
+    if (key === lastRenderKey) return;     // identical content: keep the DOM (and its input state)
+    lastRenderKey = key;
     renderInto(entryHtml);
   }
 
