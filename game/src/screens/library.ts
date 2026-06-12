@@ -82,8 +82,10 @@ export function renderLibrary(root: HTMLElement,
     catch { banner.textContent = '⚠ pipeline server offline (start it on laptop A / localhost:8000)'; }
     const entryHtml = entries.map(e => {
       const best = e.difficulties.map(d => bestForSong(e.songId, d)).find(Boolean);
+      const DIFF_ORDER: Record<string, number> = { easy: 0, medium: 1, hard: 2 };
+      const ordered = [...e.difficulties].sort((a, b) => DIFF_ORDER[a] - DIFF_ORDER[b]);
       const chips = e.status === 'ready'
-        ? e.difficulties.map(d => `<button class="chip ${d}" data-song="${e.songId}" data-diff="${d}">${d[0].toUpperCase()}</button>`).join('')
+        ? ordered.map(d => `<button class="chip ${d}" data-song="${e.songId}" data-diff="${d}">${d[0].toUpperCase()}</button>`).join('')
         : e.status === 'error' ? `<span style="color:#ff5e7a">${e.error ?? 'failed'}</span> <button class="chip easy" data-retry="${e.songId}">retry</button>`
         : e.status === 'outdated' ? `<span style="color:#ffd166">map outdated</span> <button class="chip medium" data-retry="${e.songId}">remap</button>`
         : `<span style="color:#4cc9f0">⚙ processing…</span>`;
