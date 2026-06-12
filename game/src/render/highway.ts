@@ -2,7 +2,10 @@ import type { RuntimeNote } from '../engine/chart';
 import type { Theme } from './theme';
 import { Effects } from './effects';
 
-export interface HudState { score: number; combo: number; accuracy: number; hits: number; misses: number; }
+export interface HudState {
+  score: number; combo: number; accuracy: number; hits: number; misses: number;
+  timingMs: number | null;   // median signed hit delta: + late, - early
+}
 
 export class Highway {
   readonly effects = new Effects();
@@ -147,6 +150,14 @@ export class Highway {
     };
     counter(`✓ ${hud.hits}`, '#06d6a0', 46, this.hitPulse);
     counter(`✗ ${hud.misses}`, '#ff5e7a', 68, this.missPulse);
+    if (hud.timingMs !== null) {
+      const ms = Math.round(hud.timingMs);
+      const synced = Math.abs(ms) < 8;
+      ctx.textAlign = 'right';
+      ctx.fillStyle = synced ? 'rgba(6,214,160,0.8)' : 'rgba(255,209,102,0.85)';
+      ctx.font = `600 ${Math.round(Math.min(12, w * 0.028))}px system-ui`;
+      ctx.fillText(synced ? '● synced' : `${ms > 0 ? '+' : ''}${ms}ms ${ms > 0 ? 'late' : 'early'}`, w - 12, 88);
+    }
     // combo — large, mid-highway, pops on every hit
     if (hud.combo >= 2) {
       const scale = 1 + this.comboPulse * 0.35;

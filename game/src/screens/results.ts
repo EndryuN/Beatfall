@@ -1,5 +1,6 @@
 import type { GameResult } from './game';
 import { recordScore } from '../scores';
+import { loadSettings, saveSettings } from '../settings-store';
 
 const GRADE_COLOR: Record<string, string> = {
   S: '#ffd166', A: '#06d6a0', B: '#4cc9f0', C: '#b14cff', D: '#ff5e7a',
@@ -37,6 +38,11 @@ export function showResultsOverlay(container: HTMLElement, r: GameResult,
         <span style="color:#9aa0b0">${r.counts.good} good</span>
         <span style="color:#ff5e7a">${r.counts.miss} miss</span>
       </div>
+      ${r.medianDeltaMs !== null && Math.abs(r.medianDeltaMs) >= 8 ? `
+      <div class="stat-row" id="cal-row">
+        <span>your hits ran <b style="color:#ffd166">${Math.round(Math.abs(r.medianDeltaMs))} ms ${r.medianDeltaMs > 0 ? 'late' : 'early'}</b></span>
+        <button id="res-calibrate" class="chip medium">auto-calibrate</button>
+      </div>` : ''}
       <div class="results-buttons">
         <button id="res-replay">↻ play again</button>
         <button id="res-exit" class="ghost">library</button>
@@ -45,6 +51,13 @@ export function showResultsOverlay(container: HTMLElement, r: GameResult,
   container.appendChild(el);
   el.querySelector('#res-replay')!.addEventListener('click', onReplay);
   el.querySelector('#res-exit')!.addEventListener('click', onExit);
+  el.querySelector('#res-calibrate')?.addEventListener('click', () => {
+    const s = loadSettings();
+    s.latencyOffsetMs = Math.round(s.latencyOffsetMs - (r.medianDeltaMs ?? 0));
+    saveSettings(s);
+    (el.querySelector('#cal-row') as HTMLElement).innerHTML =
+      `<span style="color:#06d6a0">✓ calibrated (offset ${s.latencyOffsetMs} ms) — applies next song</span>`;
+  });
 
   // score counts up with an ease-out over ~1.2s
   const counter = el.querySelector('#score-counter') as HTMLElement;

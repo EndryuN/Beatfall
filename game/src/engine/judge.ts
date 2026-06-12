@@ -5,6 +5,14 @@ const BASE: Record<Judgment, number> = { perfect: 300, great: 200, good: 100 };
 export const HOLD_POINTS_PER_SEC = 60;
 const JUDGE_WEIGHT: Record<Judgment, number> = { perfect: 1, great: 0.8, good: 0.5 };
 
+/** Median of signed hit deltas (ms) — the player's systematic timing bias. */
+export function medianMs(xs: number[]): number | null {
+  if (xs.length === 0) return null;
+  const s = [...xs].sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+
 export function judgeDelta(deltaMs: number): Judgment | null {
   const d = Math.abs(deltaMs);
   if (d <= WINDOWS_MS.perfect) return 'perfect';

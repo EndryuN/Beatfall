@@ -2,7 +2,7 @@ import { Band } from '../band/band';
 import { drawBand } from '../band/render';
 import { Chart } from '../engine/chart';
 import { SongClock } from '../engine/clock';
-import { judgeDelta, HIT_WINDOW_MS, Scoreboard } from '../engine/judge';
+import { judgeDelta, medianMs, HIT_WINDOW_MS, Scoreboard } from '../engine/judge';
 import { SyncMachine } from '../engine/sync';
 import { InputMapper } from '../input';
 import { Highway } from '../render/highway';
@@ -16,6 +16,7 @@ import { showResultsOverlay } from './results';
 export interface GameResult {
   beatmapId: string; score: number; maxCombo: number; grade: string;
   accuracy: number; counts: Record<string, number>; unranked: boolean;
+  medianDeltaMs: number | null;
 }
 
 export interface GameHandlers { onReplay: () => void; onExit: () => void; }
@@ -57,13 +58,15 @@ export async function runGame(root: HTMLElement, bm: Beatmap,
 
   const pressed = [false, false, false, false];
   const holding: (ReturnType<Chart['findHittable']> | null)[] = [null, null, null, null];
+  const offS = settings.latencyOffsetMs / 1000;   // one offset, applied to judging AND rendering
+  const hitDeltasMs: number[] = [];
 
   function onKey(e: KeyboardEvent, down: boolean): void {
     if (done) return;
     const lane = mapper.laneFor(e.code);
     if (lane === null || e.repeat) return;
     pressed[lane] = down;
-    const t = clock.time(performance.now()) + settings.latencyOffsetMs / 1000;
+    const t = clock.time(performance.now()) + offS;
     if (sync.state !== 'live') return;
     if (down) {
       const n = chart.findHittable(lane, t, HIT_WINDOW_MS / 1000);
@@ -74,8 +77,10 @@ export async function runGame(root: HTMLElement, bm: Beatmap,
         highway.effects.flash(THEMES[settings.theme].judgeColors.miss, 0.10);
         return;
       }
-      const j = judgeDelta((t - n.t) * 1000);
+      const deltaMs = (t - n.t) * 1000;
+      const j = judgeDelta(deltaMs);
       if (!j) return;
+      hitDeltasMs.push(deltaMs);
       chart.markHit(n);
       board.hit(j);
       if (board.combo > 0 && board.combo % 50 === 0) {
@@ -120,10 +125,10 @@ export async function runGame(root: HTMLElement, bm: Beatmap,
     let t: number;
     if (sync.state === 'live' || sync.state === 'countdown') {
       clock.reconcile(snap.currentTime, now);
-      t = clock.time(now);
+      t = clock.time(now) + offS;
     } else {
       clock.reset();
-      t = snap.currentTime;
+      t = snap.currentTime + offS;
     }
 
     if (sync.state === 'live' && !done) {
@@ -148,7 +153,8 @@ export async function runGame(root: HTMLElement, bm: Beatmap,
     wasLive = sync.state === 'live';
     highway.draw(chart.visible(t, 2.5), t, settings.scrollSpeed, pressed, dt,
                  { score: board.score, combo: board.combo, accuracy: board.accuracy,
-                   hits: board.totalJudged - board.counts.miss, misses: board.counts.miss });
+                   hits: board.totalJudged - board.counts.miss, misses: board.counts.miss,
+                   timingMs: hitDeltasMs.length >= 8 ? medianMs(hitDeltasMs) : null });
     band.update(dt);
     drawBand(bandCtx, band, t);
 
@@ -162,7 +168,7 @@ export async function runGame(root: HTMLElement, bm: Beatmap,
       const result: GameResult = {
         beatmapId: bm.beatmapId, score: Math.round(board.score), maxCombo: board.maxCombo,
         grade: board.grade(), accuracy: board.accuracy, counts: { ...board.counts },
-        unranked: sync.unranked,
+        unranked: sync.unranked, medianDeltaMs: medianMs(hitDeltasMs),
       };
       const good = result.grade === 'S' || result.grade === 'A' || result.grade === 'B';
       band.finale(good);

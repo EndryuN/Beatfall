@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { judgeDelta, Scoreboard } from './judge';
+import { judgeDelta, medianMs, Scoreboard } from './judge';
+
+describe('medianMs', () => {
+  it('computes the signed median bias', () => {
+    expect(medianMs([])).toBeNull();
+    expect(medianMs([5])).toBe(5);
+    expect(medianMs([10, -20, 30])).toBe(10);
+    expect(medianMs([10, 20, 30, 40])).toBe(25);
+  });
+});
 
 describe('judgeDelta', () => {
   it.each([
