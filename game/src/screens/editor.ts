@@ -52,16 +52,21 @@ export async function runEditor(root: HTMLElement, songId: string, mapName: stri
           <div class="editor-title">✎ <b>${mapName}</b> <span id="ed-dirty"></span></div>
           <div id="ed-stats" class="editor-stats"></div>
           <div class="editor-buttons">
-            <button id="ed-rec" class="chip hard">⏺ record (R)</button>
+            <button id="md-preview" class="chip medium">▶ preview</button>
+            <button id="md-edit" class="chip medium">✎ edit (E)</button>
+            <button id="md-record" class="chip hard">⏺ record (R)</button>
+          </div>
+          <div class="editor-buttons">
             <button id="ed-save" class="chip easy">💾 save</button>
             <button id="ed-test" class="chip medium">▶ save & test</button>
             <button id="ed-exit" class="chip medium">← library</button>
           </div>
           <div class="editor-help">
-            <b>space</b> play/pause · <b>←/→</b> seek beat (<b>shift</b>: bar) · click waveform to scrub<br>
-            <b>recording</b> (while playing): tap D F J K on the music — long presses become holds<br>
-            <b>paused</b>: D F J K toggles a note at the playhead · <b>+/-</b> stretch/shrink last note · <b>ctrl+z</b> undo<br>
-            <b>click a note</b> to delete it · <b>drag a note</b> to move it (lane + time, snapped)
+            <b>space</b> play/pause · <b>←/→</b> seek beat (<b>shift</b>: bar) · click/drag waveform to scrub<br>
+            <b>✎ edit (E)</b>: click a note to delete · drag a note to move · paused D F J K toggles a note
+            at the playhead · <b>+/-</b> stretch/shrink last note · <b>ctrl+z</b> undo<br>
+            <b>⏺ record (R)</b>: play the song and tap D F J K on the music — long presses become holds<br>
+            <b>▶ preview</b>: just watch — notes are safe from stray clicks
           </div>
         </div>
       </div>
@@ -89,14 +94,30 @@ export async function runEditor(root: HTMLElement, songId: string, mapName: stri
   let notes: BeatmapNote[] = baseNotes.map(n => ({ ...n }));
   const undoStack: string[] = [];
   let dirty = false;
-  let recording = false;
+  type Mode = 'preview' | 'edit' | 'record';
+  let mode: Mode = 'edit';
   let lastTouched: BeatmapNote | null = null;
   let savedKey: string | null = null;
   const recDown = new Map<number, number>();        // lane -> press time
 
-  const recBtn = root.querySelector('#ed-rec') as HTMLButtonElement;
   const dirtyEl = root.querySelector('#ed-dirty') as HTMLElement;
   const statsEl = root.querySelector('#ed-stats') as HTMLElement;
+  const modeBtns: Record<Mode, HTMLButtonElement> = {
+    preview: root.querySelector('#md-preview') as HTMLButtonElement,
+    edit: root.querySelector('#md-edit') as HTMLButtonElement,
+    record: root.querySelector('#md-record') as HTMLButtonElement,
+  };
+  function setMode(m: Mode): void {
+    mode = m;
+    recDown.clear();
+    for (const [k, b] of Object.entries(modeBtns)) {
+      b.classList.toggle('mode-on', k === m && m !== 'record');
+      b.classList.toggle('rec-on', k === m && m === 'record');
+    }
+    canvas.style.cursor = m === 'preview' ? 'default' : 'crosshair';
+  }
+  (Object.keys(modeBtns) as Mode[]).forEach(m =>
+    modeBtns[m].addEventListener('click', () => setMode(m)));
 
   function pushUndo(): void {
     undoStack.push(JSON.stringify(notes));
@@ -141,11 +162,6 @@ export async function runEditor(root: HTMLElement, songId: string, mapName: stri
     seekTo(target);
   }
 
-  function setRecording(on: boolean): void {
-    recording = on;
-    recBtn.classList.toggle('rec-on', on);
-    recBtn.textContent = on ? '⏺ RECORDING (R)' : '⏺ record (R)';
-  }
 
   async function save(): Promise<string | null> {
     try {
@@ -167,10 +183,9 @@ export async function runEditor(root: HTMLElement, songId: string, mapName: stri
     if (dirty && !confirm('Leave without saving? Unsaved changes will be lost.')) return;
     handlers.onExit();
   });
-  recBtn.addEventListener('click', () => setRecording(!recording));
 
-  // highway notes: click = delete, drag = move (lane and time, grid-snapped)
-  canvas.style.cursor = 'crosshair';
+  // highway notes (edit mode): click = delete, drag = move (lane and time, grid-snapped)
+  setMode('edit');
   function cursorPos(ev: PointerEvent): { lane: number; t: number } {
     const rect = canvas.getBoundingClientRect();
     const lane = Math.min(3, Math.max(0, Math.floor(((ev.clientX - rect.left) / rect.width) * 4)));
@@ -190,6 +205,7 @@ export async function runEditor(root: HTMLElement, songId: string, mapName: stri
   }
   let noteDrag: { note: BeatmapNote; moved: boolean; x: number; y: number } | null = null;
   canvas.addEventListener('pointerdown', ev => {
+    if (mode !== 'edit') return;                    // move/delete only in edit mode
     const n = noteAt(ev);
     if (!n) return;
     canvas.setPointerCapture(ev.pointerId);
@@ -263,7 +279,8 @@ export async function runEditor(root: HTMLElement, songId: string, mapName: stri
       return; }
     if (e.code === 'ArrowLeft' || e.code === 'ArrowRight') { e.preventDefault();
       seekBeats((e.code === 'ArrowRight' ? 1 : -1) * (e.shiftKey ? 4 : 1)); return; }
-    if (e.code === 'KeyR' && !e.repeat) { setRecording(!recording); return; }
+    if (e.code === 'KeyR' && !e.repeat) { setMode(mode === 'record' ? 'edit' : 'record'); return; }
+    if (e.code === 'KeyE' && !e.repeat) { setMode(mode === 'edit' ? 'preview' : 'edit'); return; }
     if (e.code === 'KeyZ' && (e.ctrlKey || e.metaKey)) {
       const prev = undoStack.pop();
       if (prev) { notes = JSON.parse(prev); lastTouched = null; }
@@ -282,9 +299,9 @@ export async function runEditor(root: HTMLElement, songId: string, mapName: stri
       return; }
 
     const lane = mapper.laneFor(e.code);
-    if (lane === null || e.repeat) return;
+    if (lane === null || e.repeat || mode === 'preview') return;
     const s = yt.snapshot();
-    if (recording && s.state === 'playing') {
+    if (mode === 'record' && s.state === 'playing') {
       recDown.set(lane, songTimeNow());                 // note written on release
     } else if (s.state !== 'playing') {
       pushUndo();
@@ -298,7 +315,7 @@ export async function runEditor(root: HTMLElement, songId: string, mapName: stri
     const down = recDown.get(lane);
     if (down === undefined) return;
     recDown.delete(lane);
-    if (!recording) return;
+    if (mode !== 'record') return;
     pushUndo();
     const t = snap(down);
     const heldS = songTimeNow() - down;
@@ -326,7 +343,8 @@ export async function runEditor(root: HTMLElement, songId: string, mapName: stri
     statsEl.innerHTML =
       `${notes.length} notes · ${notes.filter(n => n.type === 'hold').length} holds<br>` +
       `t ${t.toFixed(2)}s · bar ${Math.floor(beatNo / 4) + 1} beat ${(beatNo % 4) + 1}` +
-      (recording ? ' · <span style="color:#ff5e7a">●REC</span>' : '');
+      (mode === 'record' ? ' · <span style="color:#ff5e7a">●REC</span>'
+        : mode === 'preview' ? ' · <span style="color:#9aa0b0">preview</span>' : '');
     dirtyEl.textContent = dirty ? '● unsaved' : (savedKey ? '✓ saved' : '');
     dirtyEl.style.color = dirty ? '#ffd166' : '#06d6a0';
 

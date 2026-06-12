@@ -82,6 +82,7 @@ button { background: #06d6a0; color: #08251c; border: 0; border-radius: 8px;
 .editor-buttons .chip { padding: 6px 12px; font-size: 13px; }
 .editor-help { color: #777e90; font-size: 12px; line-height: 1.7; border-top: 1px solid rgba(255,255,255,0.08);
                padding-top: 8px; }
+.mode-on { outline: 2px solid #06d6a0; }
 .rec-on { outline: 2px solid #ff5e7a; animation: recblink 1s infinite; }
 @keyframes recblink { 50% { outline-color: transparent; } }
 
