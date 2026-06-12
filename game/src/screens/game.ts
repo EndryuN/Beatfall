@@ -30,7 +30,6 @@ export async function runGame(root: HTMLElement, bm: Beatmap,
       <div class="side-col">
         <div class="video-box"><div id="yt-mount"></div></div>
         <div class="stage-box"><canvas id="band-canvas"></canvas></div>
-        <div class="hud"><span id="hud-score">0</span><span id="hud-combo"></span><span id="hud-acc">100%</span></div>
       </div>
     </div>`;
   const canvas = root.querySelector('.highway-col canvas') as HTMLCanvasElement;
@@ -69,13 +68,18 @@ export async function runGame(root: HTMLElement, bm: Beatmap,
         const hadBigCombo = board.combo >= 50;
         board.breakCombo();
         if (hadBigCombo) band.onComboBreak(); else band.onWhiff();
+        highway.effects.flash(THEMES[settings.theme].judgeColors.miss, 0.10);
         return;
       }
       const j = judgeDelta((t - n.t) * 1000);
       if (!j) return;
       chart.markHit(n);
       board.hit(j);
-      if (board.combo > 0 && board.combo % 50 === 0) band.onMilestone();
+      if (board.combo > 0 && board.combo % 50 === 0) {
+        band.onMilestone();
+        highway.effects.confetti(canvas.width, THEMES[settings.theme].noteColors);
+        highway.effects.flash('#ffd166', 0.12);
+      }
       if (n.type === 'hold') holding[lane] = n;
       highway.effects.burst(highway.laneX(lane), highway.hitY, THEMES[settings.theme].judgeColors[j]);
       highway.effects.popup(highway.laneX(lane), highway.hitY - 60, j, THEMES[settings.theme].judgeColors[j]);
@@ -134,17 +138,22 @@ export async function runGame(root: HTMLElement, bm: Beatmap,
         const hadBigCombo = board.combo >= 50;
         board.miss();
         if (hadBigCombo) band.onComboBreak(); else band.onMiss();
+        highway.effects.flash(THEMES[settings.theme].judgeColors.miss, 0.16);
         highway.effects.popup(highway.laneX(_missed.lane), highway.hitY - 60, 'miss',
                               THEMES[settings.theme].judgeColors.miss);
       }
-      // auto-complete holds held to the end
+      // active holds: points trickle in + embers rise off the hit line
       for (let l = 0; l < 4; l++) {
         const h = holding[l];
-        if (h?.state === 'holding' && t > h.t + (h.dur ?? 0)) { h.state = 'hit'; holding[l] = null; }
+        if (h?.state !== 'holding') continue;
+        if (t > h.t + (h.dur ?? 0)) { h.state = 'hit'; holding[l] = null; continue; }  // held to the end
+        board.holdTick(dt);
+        highway.effects.holdSpark(highway.laneX(l), highway.hitY, THEMES[settings.theme].noteColors[l]);
       }
     }
     wasLive = sync.state === 'live';
-    highway.draw(chart.visible(t, 2.5), t, settings.scrollSpeed, pressed, dt);
+    highway.draw(chart.visible(t, 2.5), t, settings.scrollSpeed, pressed, dt,
+                 { score: board.score, combo: board.combo, accuracy: board.accuracy });
     band.update(dt);
     drawBand(bandCtx, band, t);
 
@@ -152,10 +161,6 @@ export async function runGame(root: HTMLElement, bm: Beatmap,
     if (sync.state === 'waiting') ovText.textContent = snap.currentTime < 1 ? '⏳ waiting for ad / video…' : '⏳ ad break…';
     if (sync.state === 'countdown') ovText.textContent = String(Math.ceil(sync.countdownLeftS));
     if (sync.state === 'paused') ovText.textContent = '⏸ paused';
-
-    (root.querySelector('#hud-score') as HTMLElement).textContent = String(Math.round(board.score));
-    (root.querySelector('#hud-combo') as HTMLElement).textContent = board.combo > 1 ? `×${board.combo}` : '';
-    (root.querySelector('#hud-acc') as HTMLElement).textContent = `${(board.accuracy * 100).toFixed(1)}%`;
 
     if (!done && (sync.state === 'ended' || (chart.finished && sync.state === 'live'))) {
       done = true;

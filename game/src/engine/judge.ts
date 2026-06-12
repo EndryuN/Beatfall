@@ -2,6 +2,7 @@ export type Judgment = 'perfect' | 'great' | 'good';
 export const WINDOWS_MS: Record<Judgment, number> = { perfect: 45, great: 90, good: 135 };
 export const HIT_WINDOW_MS = 135;
 const BASE: Record<Judgment, number> = { perfect: 300, great: 200, good: 100 };
+export const HOLD_POINTS_PER_SEC = 60;
 const JUDGE_WEIGHT: Record<Judgment, number> = { perfect: 1, great: 0.8, good: 0.5 };
 
 export function judgeDelta(deltaMs: number): Judgment | null {
@@ -28,6 +29,8 @@ export class Scoreboard {
     this.combo += 1; this.maxCombo = Math.max(this.maxCombo, this.combo);
     this.counts[j] += 1;
   }
+  /** Points trickle in while a hold note is being held. */
+  holdTick(dtS: number): void { this.score += HOLD_POINTS_PER_SEC * this.multiplier * dtS; }
   miss(): void { this.combo = 0; this.counts.miss += 1; }
   breakCombo(): void { this.combo = 0; }   // whiff: combo breaks, no miss counted
   grade(): 'S' | 'A' | 'B' | 'C' | 'D' {

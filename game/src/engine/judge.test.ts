@@ -20,6 +20,13 @@ describe('Scoreboard', () => {
     s.hit('good');
     expect(s.score).toBeGreaterThan(before);
   });
+  it('holding accrues points over time', () => {
+    const s = new Scoreboard();
+    const before = s.score;
+    s.holdTick(0.5);
+    s.holdTick(0.5);
+    expect(s.score - before).toBeCloseTo(60, 0);   // 1s held at base multiplier
+  });
   it('accuracy and grade', () => {
     const s = new Scoreboard();
     for (let i = 0; i < 95; i++) s.hit('perfect');
