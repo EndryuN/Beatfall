@@ -19,7 +19,11 @@ export function renderLibrary(root: HTMLElement,
   const banner = root.querySelector('#banner') as HTMLElement;
   root.querySelector('#settings')!.addEventListener('click', onSettings);
 
+  // While search results are shown, the 3 s poll must not clobber them.
+  let showingResults = false;
+
   async function refresh(): Promise<void> {
+    if (showingResults) return;
     let entries: LibraryEntry[] = [];
     try { entries = await api.songs(); banner.textContent = ''; }
     catch { banner.textContent = '⚠ pipeline server offline (start it on laptop A / localhost:8000)'; }
@@ -41,16 +45,56 @@ export function renderLibrary(root: HTMLElement,
       b.addEventListener('click', () => api.addSong(videoIdOf(b.dataset.retry!)).then(refresh)));
   }
 
+  // A pasted YouTube link (or bare 11-char id) skips search and maps immediately.
+  function extractVideoId(q: string): string | null {
+    if (/^[A-Za-z0-9_-]{11}$/.test(q)) return q;
+    const m = q.match(/(?:v=|youtu\.be\/|shorts\/)([A-Za-z0-9_-]{11})/);
+    return m ? m[1] : null;
+  }
+
+  const input = root.querySelector('#q') as HTMLInputElement;
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') (root.querySelector('#add') as HTMLButtonElement).click();
+  });
+
   root.querySelector('#add')!.addEventListener('click', async () => {
-    const q = (root.querySelector('#q') as HTMLInputElement).value.trim();
+    const q = input.value.trim();
     if (!q) return;
-    const { candidates } = await api.search(q);
-    list.innerHTML = candidates.map(c => `
-      <div class="row"><img src="${c.thumbnail}" alt="">
-        <div class="grow">${c.title} <span style="color:#888">· ${c.channel}</span></div>
-        <button class="chip easy" data-pick="${c.videoId}">map this</button></div>`).join('');
-    list.querySelectorAll<HTMLButtonElement>('[data-pick]').forEach(b =>
-      b.addEventListener('click', async () => { await api.addSong(b.dataset.pick!); refresh(); }));
+    banner.textContent = '';
+    try {
+      const videoId = extractVideoId(q);
+      if (videoId) {                       // direct add: paste link → pipeline starts now
+        await api.addSong(videoId);
+        input.value = '';
+        showingResults = false;
+        await refresh();
+        return;
+      }
+      showingResults = true;
+      list.innerHTML = '<p style="padding:1rem;color:#888">searching…</p>';
+      const { candidates } = await api.search(q);
+      list.innerHTML =
+        `<div class="row" style="background:none"><button class="chip medium" id="back-to-library">← back to library</button></div>` +
+        candidates.map(c => `
+        <div class="row"><img src="${c.thumbnail}" alt="">
+          <div class="grow">${c.title} <span style="color:#888">· ${c.channel}</span></div>
+          <button class="chip easy" data-pick="${c.videoId}">map this</button></div>`).join('');
+      list.querySelector('#back-to-library')!.addEventListener('click', () => {
+        showingResults = false;
+        refresh();
+      });
+      list.querySelectorAll<HTMLButtonElement>('[data-pick]').forEach(b =>
+        b.addEventListener('click', async () => {
+          await api.addSong(b.dataset.pick!);
+          input.value = '';
+          showingResults = false;
+          refresh();
+        }));
+    } catch (err) {
+      banner.textContent = `⚠ ${err instanceof Error ? err.message : err}`;
+      showingResults = false;
+      refresh();
+    }
   });
 
   refresh();
