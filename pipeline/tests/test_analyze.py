@@ -32,6 +32,31 @@ def test_sustain_from_steady_tone():
     assert s.dur and s.dur > 1.0
     assert s.pitch and abs(s.pitch - 69.0) < 1.0  # 440 Hz = MIDI 69
 
+def _burst(y, sr, t0, freqs, dur=0.04):
+    """Short percussive burst of the given frequencies with a sharp attack."""
+    n0, n = int(t0 * sr), int(dur * sr)
+    tt = np.arange(n) / sr
+    env = np.linspace(1.0, 0.0, n)
+    for f in freqs:
+        y[n0:n0 + n] += (0.8 * np.sin(2 * np.pi * f * tt) * env).astype(y.dtype)
+
+def _drum_near(doc, t, tol=0.08):
+    cands = [e for e in doc.events if e.kind == "onset" and abs(e.t - t) <= tol]
+    return cands[0].drum if cands else None
+
+def test_onset_drum_classification():
+    y = np.zeros(int(6 * SR), dtype=np.float32)
+    for t in (1.0, 2.0):
+        _burst(y, SR, t, [60, 90])                  # kick: low thump
+    for t in (1.5, 2.5):
+        _burst(y, SR, t, [7000, 9000, 11000])       # hat: high sizzle
+    for t in (3.0, 4.0):
+        _burst(y, SR, t, [400, 900, 1800])          # snare: mid crack
+    doc = analyze_audio(y, SR, SongMeta(videoId="dQw4w9WgXcQ", title="t", duration=6.0))
+    assert _drum_near(doc, 1.0) == "kick" and _drum_near(doc, 2.0) == "kick"
+    assert _drum_near(doc, 1.5) == "hat" and _drum_near(doc, 2.5) == "hat"
+    assert _drum_near(doc, 3.0) == "snare" and _drum_near(doc, 4.0) == "snare"
+
 def test_energy_curves_and_roster():
     y = click_track(bpm=120, seconds=10)
     doc = analyze_audio(y, SR, META)

@@ -3,14 +3,15 @@ import json
 from beatfall_pipeline.generate import generate_beatmaps, snap_to_grid, DENSITY
 from beatfall_pipeline.models import AnalysisDoc, Event, EnergyCurves
 
-def _doc(events, duration=20.0, bpm=120.0):
+def _doc(events, duration=20.0, bpm=120.0, drums_curve=None):
     beats = [round(i * 0.5, 3) for i in range(int(duration / 0.5))]
+    curve = drums_curve if drums_curve is not None else [0.5] * 300
     return AnalysisDoc(songId="yt:dQw4w9WgXcQ", analysisVersion=1, title="t", duration=duration,
                        bpm=bpm, beatGrid=beats, roster=["drummer"], events=events,
-                       energyCurves=EnergyCurves(sampleRateHz=15, stems={"drums": [0.5] * 300}))
+                       energyCurves=EnergyCurves(sampleRateHz=15, stems={"drums": curve}))
 
-def _onset(t, s=0.8):
-    return Event(t=t, stem="drums", kind="onset", strength=s)
+def _onset(t, s=0.8, drum=None):
+    return Event(t=t, stem="drums", kind="onset", strength=s, drum=drum)
 
 def test_snap_quantizes_to_16ths():
     doc = _doc([_onset(1.03), _onset(1.97)])
@@ -58,6 +59,43 @@ def test_weak_onsets_filtered():
 def test_downbeats_get_outer_lanes():
     maps = {m.difficulty: m for m in generate_beatmaps(_doc([_onset(2.0, s=0.9), _onset(2.5, s=0.9)]))}
     assert {n.lane for n in maps["hard"].notes} == {0, 3}
+
+def test_kicks_outer_snares_inner():
+    events = [_onset(2.0, drum="kick"), _onset(2.5, drum="snare"),
+              _onset(3.0, drum="kick"), _onset(3.5, drum="snare")]
+    maps = {m.difficulty: m for m in generate_beatmaps(_doc(events))}
+    kicks = [n.lane for n in maps["hard"].notes if n.t in (2.0, 3.0)]
+    snares = [n.lane for n in maps["hard"].notes if n.t in (2.5, 3.5)]
+    assert set(kicks) <= {0, 3} and set(snares) <= {1, 2}
+
+def test_easy_skips_hats():
+    events = [_onset(2.0, drum="kick"), _onset(2.5, drum="hat"), _onset(3.0, drum="hat"),
+              _onset(3.5, drum="kick")]
+    maps = {m.difficulty: m for m in generate_beatmaps(_doc(events))}
+    assert [n.t for n in maps["easy"].notes] == [2.0, 3.5]
+    assert len(maps["hard"].notes) == 4
+
+def test_density_follows_energy():
+    # quiet first half, loud second half; identical onset material in both
+    curve = [0.05] * 150 + [1.0] * 150          # 15 Hz x 20 s
+    events = [_onset(round(0.25 * i, 3), s=0.6) for i in range(8, 80)]  # 2.0 .. 19.75
+    maps = {m.difficulty: m for m in generate_beatmaps(_doc(events, drums_curve=curve))}
+    notes = maps["medium"].notes
+    first = [n for n in notes if n.t < 10.0]
+    second = [n for n in notes if n.t >= 10.0]
+    assert len(second) > len(first) * 2
+
+def test_repeated_bars_repeat_their_pattern():
+    # identical rhythm in bar starting at 4.0s and bar starting at 8.0s (bars are 2s at 120bpm)
+    pat = [(0.0, "kick"), (0.5, "snare"), (1.0, "kick"), (1.5, "snare")]
+    events = [_onset(4.0 + dt, drum=d) for dt, d in pat] + \
+             [_onset(6.0, drum="kick")] + \
+             [_onset(8.0 + dt, drum=d) for dt, d in pat]   # 6.0 kick shifts alternation parity
+    maps = {m.difficulty: m for m in generate_beatmaps(_doc(events))}
+    notes = sorted(maps["hard"].notes, key=lambda n: n.t)
+    lanes_a = [n.lane for n in notes if 4.0 <= n.t < 6.0]
+    lanes_b = [n.lane for n in notes if 8.0 <= n.t < 10.0]
+    assert len(lanes_a) == 4 and lanes_a == lanes_b
 
 def test_deterministic():
     events = [_onset(round(0.125 * i, 3), s=0.5 + (i % 7) * 0.07) for i in range(160)]

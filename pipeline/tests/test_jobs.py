@@ -1,7 +1,7 @@
 # pipeline/tests/test_jobs.py
 import json, time
 from pathlib import Path
-from beatfall_pipeline import GENERATOR_VERSION
+from beatfall_pipeline import ANALYSIS_VERSION, GENERATOR_VERSION
 from beatfall_pipeline.jobs import JobQueue, PipelineSteps
 from beatfall_pipeline.models import AnalysisDoc, Beatmap, SongMeta
 from beatfall_pipeline.store import BeatmapStore
@@ -24,7 +24,8 @@ class FakeSteps(PipelineSteps):
         return Path("fake.wav"), SongMeta(videoId=video_id, title="Fake", duration=10.0)
     def analyze(self, audio_path, meta):
         if self.fail_at == "analyze": raise RuntimeError("boom")
-        return AnalysisDoc.model_validate(json.loads((FIX / "fixture.analysis.json").read_text()))
+        doc = AnalysisDoc.model_validate(json.loads((FIX / "fixture.analysis.json").read_text()))
+        return doc.model_copy(update={"analysisVersion": ANALYSIS_VERSION})  # fixture is pinned at v1
     def generate(self, analysis):
         return [fixture_beatmap()]
     def cleanup(self, audio_path): pass

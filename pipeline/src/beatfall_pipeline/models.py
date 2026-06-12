@@ -12,6 +12,7 @@ class Event(BaseModel):
     dur: Optional[float] = None
     pitch: Optional[float] = None
     pitchConf: Optional[float] = None
+    drum: Optional[Literal["kick", "snare", "hat"]] = None
 
 class EnergyCurves(BaseModel):
     sampleRateHz: float

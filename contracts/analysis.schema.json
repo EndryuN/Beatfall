@@ -42,7 +42,8 @@
         "strength": { "type": "number", "minimum": 0, "maximum": 1 },
         "dur": { "type": "number", "exclusiveMinimum": 0 },
         "pitch": { "type": "number", "description": "MIDI note number, optional, only when confidently detected" },
-        "pitchConf": { "type": "number", "minimum": 0, "maximum": 1 }
+        "pitchConf": { "type": "number", "minimum": 0, "maximum": 1 },
+        "drum": { "enum": ["kick", "snare", "hat"], "description": "optional percussion class for drum onsets" }
       }
     }
   }
