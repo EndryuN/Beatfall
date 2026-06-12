@@ -60,7 +60,8 @@ export async function runEditor(root: HTMLElement, songId: string, mapName: stri
           <div class="editor-help">
             <b>space</b> play/pause · <b>←/→</b> seek beat (<b>shift</b>: bar) · click waveform to scrub<br>
             <b>recording</b> (while playing): tap D F J K on the music — long presses become holds<br>
-            <b>paused</b>: D F J K toggles a note at the playhead · <b>+/-</b> stretch/shrink last note · <b>ctrl+z</b> undo
+            <b>paused</b>: D F J K toggles a note at the playhead · <b>+/-</b> stretch/shrink last note · <b>ctrl+z</b> undo<br>
+            <b>click a note</b> to delete it · <b>drag a note</b> to move it (lane + time, snapped)
           </div>
         </div>
       </div>
@@ -167,6 +168,56 @@ export async function runEditor(root: HTMLElement, songId: string, mapName: stri
     handlers.onExit();
   });
   recBtn.addEventListener('click', () => setRecording(!recording));
+
+  // highway notes: click = delete, drag = move (lane and time, grid-snapped)
+  canvas.style.cursor = 'crosshair';
+  function cursorPos(ev: PointerEvent): { lane: number; t: number } {
+    const rect = canvas.getBoundingClientRect();
+    const lane = Math.min(3, Math.max(0, Math.floor(((ev.clientX - rect.left) / rect.width) * 4)));
+    const y = ((ev.clientY - rect.top) / rect.height) * canvas.height;
+    return { lane, t: songTimeNow() + (highway.hitY - y) / settings.scrollSpeed };
+  }
+  function noteAt(ev: PointerEvent): BeatmapNote | null {
+    const { lane, t } = cursorPos(ev);
+    const tol = Math.max(slotWidth(t) * 0.75, 12 / settings.scrollSpeed);
+    let best: BeatmapNote | null = null;
+    for (const n of notes) {
+      if (n.lane !== lane) continue;
+      const within = n.dur ? (t >= n.t - tol && t <= n.t + n.dur + tol) : Math.abs(n.t - t) <= tol;
+      if (within && (best === null || Math.abs(n.t - t) < Math.abs(best.t - t))) best = n;
+    }
+    return best;
+  }
+  let noteDrag: { note: BeatmapNote; moved: boolean; x: number; y: number } | null = null;
+  canvas.addEventListener('pointerdown', ev => {
+    const n = noteAt(ev);
+    if (!n) return;
+    canvas.setPointerCapture(ev.pointerId);
+    noteDrag = { note: n, moved: false, x: ev.clientX, y: ev.clientY };
+  });
+  canvas.addEventListener('pointermove', ev => {
+    if (!noteDrag) return;
+    if (!noteDrag.moved && Math.hypot(ev.clientX - noteDrag.x, ev.clientY - noteDrag.y) > 6) {
+      noteDrag.moved = true;
+      pushUndo();                                   // snapshot the pre-drag position
+    }
+    if (!noteDrag.moved) return;
+    const { lane, t } = cursorPos(ev);
+    noteDrag.note.lane = lane;
+    noteDrag.note.t = snap(t);
+  });
+  canvas.addEventListener('pointerup', () => {
+    if (!noteDrag) return;
+    if (!noteDrag.moved) {                          // plain click: delete
+      pushUndo();
+      notes = notes.filter(n => n !== noteDrag!.note);
+      if (lastTouched === noteDrag.note) lastTouched = null;
+    } else {
+      notes.sort((a, b) => a.t - b.t);
+      lastTouched = noteDrag.note;                  // so +/- can stretch it right away
+    }
+    noteDrag = null;
+  });
 
   // waveform scrubbing: click jumps, drag slides the song under the playhead
   let scrub: { startX: number; startT: number; moved: boolean } | null = null;
