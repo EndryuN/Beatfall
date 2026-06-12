@@ -20,6 +20,14 @@ export class Chart {
     return best;
   }
   markHit(n: RuntimeNote): void { n.state = n.type === 'hold' ? 'holding' : 'hit'; }
+  /** Silently retire notes that scrolled past while the game wasn't live
+      (ad break, pause, countdown) — they don't count as misses. */
+  dropBefore(songTime: number): void {
+    for (const n of this.notes) {
+      if (n.state === 'pending' && n.t < songTime) n.state = 'dropped';
+      if (n.t >= songTime) break;
+    }
+  }
   sweepMissed(songTime: number, windowS = 0.135): RuntimeNote[] {
     const out: RuntimeNote[] = [];
     for (const n of this.notes) {

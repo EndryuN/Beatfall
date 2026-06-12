@@ -82,14 +82,26 @@ export async function runGame(root: HTMLElement, bm: Beatmap,
   let last = performance.now();
   let raf = 0;
   let done = false;
+  let wasLive = false;
   function frame(now: number): void {
     const dt = (now - last) / 1000; last = now;
     const snap = yt.snapshot();
     sync.tick(snap, dt);
-    if (sync.state === 'live') clock.reconcile(snap.currentTime, now);
 
-    const t = clock.time(now);
+    // Song time only flows while the video's content is actually advancing
+    // (live or counting in). Otherwise it's pinned to the player's frozen time,
+    // so notes never move during ads, pauses, or before playback starts.
+    let t: number;
+    if (sync.state === 'live' || sync.state === 'countdown') {
+      clock.reconcile(snap.currentTime, now);
+      t = clock.time(now);
+    } else {
+      clock.reset();
+      t = snap.currentTime;
+    }
+
     if (sync.state === 'live') {
+      if (!wasLive) chart.dropBefore(t - HIT_WINDOW_MS / 1000); // forgive notes lost to the gap
       for (const _missed of chart.sweepMissed(t)) {
         board.miss();
         highway.effects.popup(highway.laneX(_missed.lane), highway.hitY - 60, 'miss',
@@ -101,6 +113,7 @@ export async function runGame(root: HTMLElement, bm: Beatmap,
         if (h?.state === 'holding' && t > h.t + (h.dur ?? 0)) { h.state = 'hit'; holding[l] = null; }
       }
     }
+    wasLive = sync.state === 'live';
     highway.draw(chart.visible(t, 2.5), t, settings.scrollSpeed, pressed, dt);
 
     overlay.classList.toggle('hidden', sync.state === 'live');

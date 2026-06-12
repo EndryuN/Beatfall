@@ -32,6 +32,13 @@ describe('Chart', () => {
     expect(missed.map(n => n.t)).toEqual([1.0, 1.2]);
     expect(c.sweepMissed(1.5)).toEqual([]);       // idempotent
   });
+  it('dropBefore silently drops stale notes (no misses after rejoin)', () => {
+    const c = new Chart(bm);
+    c.dropBefore(1.5);
+    expect(c.sweepMissed(1.5)).toEqual([]);           // nothing left to count as a miss
+    expect(c.findHittable(0, 1.2, 0.135)).toBeNull(); // dropped notes are not hittable
+    expect(c.visible(0.5, 2.0).map(n => n.t)).toEqual([2.0]); // only the future hold remains
+  });
   it('notes visible in scroll window', () => {
     const c = new Chart(bm);
     const vis = c.visible(0.5, 2.0);              // songTime 0.5, lookahead 2s
