@@ -1,8 +1,8 @@
-from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from . import ANALYSIS_VERSION, GENERATOR_VERSION
+from . import ANALYSIS_VERSION, GENERATOR_VERSION, config
 from .jobs import JobQueue, PipelineSteps
 from .store import BeatmapStore
 
@@ -13,18 +13,30 @@ class AddSongBody(BaseModel):
 class CustomMapBody(BaseModel):
     notes: list[dict]
 
-def create_app(store: BeatmapStore | None = None, steps: PipelineSteps | None = None) -> FastAPI:
+def create_app(store: BeatmapStore | None = None, steps: PipelineSteps | None = None,
+               queue=None) -> FastAPI:
     if store is None:
-        store = BeatmapStore(Path(__file__).resolve().parents[3] / "data")
-    if steps is None:
-        from .steps import RealSteps
-        steps = RealSteps()
-    queue = JobQueue(store, steps)
-    queue.start()
+        store = BeatmapStore(config.STORE_ROOT)
+    if queue is None:
+        if steps is not None:                      # tests: in-process thread queue
+            q = JobQueue(store, steps)
+            q.start()
+            queue = q
+        else:                                      # service mode: shared sqlite queue
+            from .queue_sqlite import SqliteJobQueue
+            queue = SqliteJobQueue(config.QUEUE_DB)
 
-    app = FastAPI(title="beatfall-pipeline")
-    app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173"],
+    app = FastAPI(title="mlib")
+    app.add_middleware(CORSMiddleware, allow_origins=config.CORS_ORIGINS,
                        allow_methods=["*"], allow_headers=["*"])
+
+    @app.middleware("http")
+    async def require_api_key(request, call_next):
+        if config.API_KEY and request.method in ("POST", "PUT", "DELETE") \
+                and request.headers.get("x-api-key") != config.API_KEY:
+            return JSONResponse(status_code=401,
+                                content={"detail": "invalid or missing API key"})
+        return await call_next(request)
 
     @app.get("/api/search")
     def api_search(q: str):
@@ -37,8 +49,10 @@ def create_app(store: BeatmapStore | None = None, steps: PipelineSteps | None = 
         if not body.force and store.get_analysis(song_id, ANALYSIS_VERSION) and \
            store.get_beatmap(song_id, "hard", GENERATOR_VERSION):
             return {"songId": song_id, "status": "ready"}
-        job = queue.submit(body.videoId)
-        from fastapi.responses import JSONResponse
+        try:
+            job = queue.submit(body.videoId)
+        except Exception:
+            raise HTTPException(503, "job queue unavailable")
         return JSONResponse(status_code=202,
                             content={"songId": song_id, "jobId": job.id, "status": "queued"})
 
