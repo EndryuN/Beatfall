@@ -10,19 +10,28 @@ desktop (the only GPU machine), published as `https://api.musiclabs.uk`. The gam
 and run from a laptop at the hackathon — talks to it over the internet. Starting the whole service is
 one double-click (`start-beatfall.bat`).
 
+## Naming: the service is mlib
+
+The API container is **founded as mlib** — the user's planned music-library service. Same codebase
+(`pipeline/`), two entrypoints: `mlib` (the API service, container name `mlib`, FastAPI title
+"mlib") and the GPU worker. The HTTP surface stays `contracts/api.md` verbatim, so Beatfall the
+game is simply mlib's first client; song search (`/search`) is already mlib's natural territory.
+Extracting mlib into its own repository is future work, deliberately out of scope — the container
+boundary is the seam that makes that extraction mechanical later.
+
 ## Architecture
 
 Four containers via `docker-compose.yml` at the repo root, on one Docker network:
 
 ```
-laptop (game, Vite)  ──HTTPS──▶  Cloudflare edge  ──tunnel──▶  cloudflared ──▶ api ──▶ redis ◀── worker (GPU)
-                                                                              │                    │
-                                                                              └──── data volume ───┘
+laptop (game, Vite)  ──HTTPS──▶  Cloudflare edge  ──tunnel──▶  cloudflared ──▶ mlib ──▶ redis ◀── worker (GPU)
+                                                                              │                     │
+                                                                              └──── data volume ────┘
 ```
 
 | Container | Image base | Role | GPU |
 |---|---|---|---|
-| `api` | `python:3.12-slim` | FastAPI: validate, enqueue, serve store reads, auth | no |
+| `mlib` | `python:3.12-slim` | FastAPI (the mlib service): validate, enqueue, serve store reads, search, auth | no |
 | `worker` | `pytorch/pytorch:*-cuda*-runtime` | consume jobs: yt-dlp → Demucs → basic-pitch → PANNs → generate → store | yes |
 | `redis` | `redis:7-alpine` | job queue + job status (durable across restarts) | no |
 | `cloudflared` | `cloudflare/cloudflared` | publish api as `api.musiclabs.uk` (outbound tunnel, TLS at edge) | no |
