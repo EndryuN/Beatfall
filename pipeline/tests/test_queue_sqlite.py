@@ -52,3 +52,34 @@ def test_orphan_marking(tmp_path):
 def test_get_unknown(tmp_path):
     assert _q(tmp_path).get("j-999") is None
     assert _q(tmp_path).get("garbage") is None
+
+def test_concurrent_submit_no_duplicates(tmp_path):
+    import threading
+    db = tmp_path / "jobs.db"
+    SqliteJobQueue(db)                                  # pre-create
+    results = []
+    barrier = threading.Barrier(8)
+    def worker():
+        q = SqliteJobQueue(db)
+        barrier.wait()
+        results.append(q.submit("sameVideo").id)
+    threads = [threading.Thread(target=worker) for _ in range(8)]
+    [t.start() for t in threads]
+    [t.join() for t in threads]
+    assert len(set(results)) == 1, f"duplicate jobs: {set(results)}"
+
+def test_concurrent_fresh_init(tmp_path):
+    import threading
+    db = tmp_path / "fresh.db"
+    errors = []
+    barrier = threading.Barrier(6)
+    def worker():
+        try:
+            barrier.wait()
+            SqliteJobQueue(db).submit("v")
+        except Exception as e:
+            errors.append(e)
+    threads = [threading.Thread(target=worker) for _ in range(6)]
+    [t.start() for t in threads]
+    [t.join() for t in threads]
+    assert not errors, errors
