@@ -200,25 +200,25 @@ function drawRolePropAndArms(ctx: CanvasRenderingContext2D, m: MemberState, band
       break;
     }
     case 'violinist': {
-      // violin tucked under the chin (neck to the left); left hand fingers the neck,
-      // right hand draws the bow — each arm stays on its own side, no body-crossing.
-      const vy = headY + 15 * s;                  // violin sits just below the head
+      // violin tucked at the shoulder, bow sawing with the music
       ctx.save();
-      ctx.rotate(-0.12);
+      ctx.rotate(-0.45);
       ctx.fillStyle = '#8a5a2b';
-      ctx.beginPath(); ctx.ellipse(-2 * s, vy, 7 * s, 4.5 * s, 0, 0, Math.PI * 2);
+      ctx.beginPath(); ctx.ellipse(7 * s, headY + 14 * s, 9 * s, 5.5 * s, 0, 0, Math.PI * 2);
       ctx.fill(); ctx.stroke();
-      ctx.lineWidth = 2 * s;                       // neck pointing left toward the fingering hand
-      ctx.beginPath(); ctx.moveTo(-8 * s, vy); ctx.lineTo(-18 * s, vy - 3 * s); ctx.stroke();
+      ctx.lineWidth = 2.5 * s;                    // violin neck
+      ctx.beginPath(); ctx.moveTo(14 * s, headY + 12 * s); ctx.lineTo(24 * s, headY + 8 * s); ctx.stroke();
       ctx.restore();
-      const saw = swing * 5 * s;                   // bow slides across the strings
-      ctx.strokeStyle = '#3a2415'; ctx.lineWidth = 1.8 * s;
+      const saw = swing * 8 * s;                  // bow stroke
+      ctx.lineWidth = 2 * s;
       ctx.beginPath();
-      ctx.moveTo(-6 * s, vy + 7 * s + saw); ctx.lineTo(10 * s, vy - 1 * s + saw); ctx.stroke();
-      ctx.strokeStyle = OUTLINE; ctx.lineWidth = 3.5 * s;
+      ctx.moveTo(-2 * s + saw, headY + 2 * s);
+      ctx.lineTo(18 * s + saw, headY + 16 * s);
+      ctx.stroke();
+      ctx.lineWidth = 3.5 * s;                    // arms: short fingering hand + bow hand
       ctx.beginPath();
-      ctx.moveTo(-bodyW2(s), armY); ctx.lineTo(-16 * s, vy - 2 * s);          // left: fingering hand
-      ctx.moveTo(bodyW2(s), armY); ctx.lineTo(9 * s, vy - 1 * s + saw);       // right: bow hand
+      ctx.moveTo(-bodyW2(s), armY); ctx.lineTo(2 * s, headY + 13 * s);   // shortened, no body-cross
+      ctx.moveTo(bodyW2(s), armY); ctx.lineTo(10 * s + saw, headY + 10 * s);
       ctx.stroke();
       break;
     }
