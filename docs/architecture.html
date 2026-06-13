@@ -8,7 +8,7 @@
   * { box-sizing: border-box; }
   body { background: #14161d; color: #e8eaf2; font-family: system-ui, -apple-system, sans-serif;
          margin: 0; padding: 32px 16px 64px; }
-  .wrap { max-width: 880px; margin: 0 auto; }
+  .wrap { max-width: 900px; margin: 0 auto; }
   h1 { font-size: 26px; margin: 0 0 6px; }
   .subtitle { color: #9aa0b0; font-size: 14px; margin: 0 0 28px; line-height: 1.5; }
   .tier { border: 2px solid; border-radius: 10px; padding: 14px 18px; }
@@ -21,14 +21,14 @@
   .arrow { text-align: center; font-size: 18px; opacity: .7; padding: 4px 0; }
   .arrow small { display: block; font-size: 11px; color: #9aa0b0; }
   .flow { display: flex; align-items: stretch; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
-  .flow .step { flex: 1; min-width: 120px; background: rgba(255,255,255,.06); border-radius: 8px;
-                padding: 10px; font-size: 12.5px; line-height: 1.4; }
+  .flow .step { flex: 1; min-width: 110px; background: rgba(255,255,255,.06); border-radius: 8px;
+                padding: 10px; font-size: 12px; line-height: 1.4; }
   .flow .sep { align-self: center; opacity: .6; }
   .badge { display: inline-block; border-radius: 5px; padding: 1px 7px; font-size: 10.5px;
            font-weight: 700; letter-spacing: .04em; vertical-align: 1px; }
-  .badge.stretch { background: #ffd16626; color: #ffd166; }
   .badge.future { background: #4cc9f026; color: #4cc9f0; }
   .badge.done { background: #06d6a026; color: #06d6a0; }
+  .badge.gpu { background: #b14cff26; color: #c98cff; }
   .duo { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
   .duo .note { flex: 1; min-width: 260px; border: 1px dashed rgba(255,255,255,.32); border-radius: 10px;
                padding: 10px 14px; font-size: 13px; line-height: 1.5; }
@@ -42,43 +42,54 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>Beatfall — system architecture <span class="badge done">contracts frozen</span></h1>
-  <p class="subtitle">Two processes on your machine: the game in the browser (Track B / laptop B), the pipeline as a local
-  Python server (Track A / laptop A). Audio is only ever touched offline by the pipeline, then deleted —
-  at play time, video <i>and</i> sound stream from the official YouTube embed.</p>
+  <h1>Beatfall — system architecture <span class="badge done">native Windows service</span></h1>
+  <p class="subtitle">The game (browser) talks to <b>mlib</b> — a local service on the GPU desktop, split into a thin
+  API process and a GPU worker joined by a durable job queue. Audio is touched only during analysis, then deleted;
+  at play time video <i>and</i> sound stream from the official YouTube embed.</p>
 
   <div class="tier" style="border-color:#4cc9f0; background:rgba(76,201,240,.06);">
-    <div class="label" style="color:#4cc9f0;">Browser — game frontend (Vite + TypeScript) · Track B</div>
+    <div class="label" style="color:#4cc9f0;">Browser — game client (Vite + TypeScript) → <span style="text-transform:none">beatfall.&lt;tld&gt;</span> <span class="badge future">domain planned</span></div>
     <div class="grid">
-      <div class="cell"><b>Library screen</b>compact rows: thumbnail, BPM, best grade/combo, E·M·H chips, live job progress; search-or-paste bar</div>
-      <div class="cell"><b>Game screen</b>canvas highway (4 lanes, taps+holds) ⇄ YouTube pane, band stage box, HUD; mirrorable left/right</div>
-      <div class="cell"><b>Settings</b>key remap (DFJK default), theme (Dark Stage / Neon), scroll speed, latency offset</div>
-      <div class="cell"><b>Results</b>grade S–D, accuracy, judgment counts; personal bests → localStorage (keyed by beatmapId)</div>
+      <div class="cell"><b>Library</b>expandable song rows · per-map play/edit/delete · custom maps · 🎹 3/4-lane toggle · search-or-paste · live job progress</div>
+      <div class="cell"><b>Game</b>canvas highway (4-lane, or 3-lane projection) ⇄ YouTube pane · cartoon band · HUD · pause menu · mirrorable</div>
+      <div class="cell"><b>Editor</b>preview / edit / record modes · tap-to-map, drag, delete · beat rails + per-stem waveforms · save &amp; test</div>
+      <div class="cell"><b>Results</b>glass overlay on the live scene · grade S–D, count-up, judgment bar · band finale · auto-calibration</div>
     </div>
     <div class="grid">
-      <div class="cell"><b>SongClock</b><span class="dim">perf.now clock reconciled to player time; smooth nudge, snap &gt;80 ms</span></div>
-      <div class="cell"><b>SyncMachine</b><span class="dim">waiting → countdown → live · ads/buffering = time-stall detection · seek ⇒ unranked</span></div>
-      <div class="cell"><b>Judge / Scoreboard</b><span class="dim">±45/90/135 ms · combo multiplier · whiff breaks combo</span></div>
-      <div class="cell"><b>Band layer <span class="badge future">post-hackathon</span></b><span class="dim">grooves on energy curves; pratfalls on key:wrong events</span></div>
+      <div class="cell"><b>SongClock</b><span class="dim">perf.now clock reconciled to player time; ignores stale samples</span></div>
+      <div class="cell"><b>SyncMachine</b><span class="dim">ad/buffering = time-stall detection · pause freezes · seek ⇒ unranked</span></div>
+      <div class="cell"><b>Judge / Scoreboard</b><span class="dim">±45/90/135 ms · combo multiplier · hold ticks · whiff breaks combo</span></div>
+      <div class="cell"><b>Band layer <span class="badge done">built</span></b><span class="dim">grooves on energy curves; pratfalls on miss/whiff; violinist when strings lead</span></div>
     </div>
   </div>
 
-  <div class="arrow">⬍<small>REST (contracts/api.md): /search · POST /songs · /jobs/{id} · /songs/{id}/beatmaps/{diff} — localhost:8000, polled</small></div>
+  <div class="arrow">⬍<small>REST (contracts/api.md) · GETs open, POST/PUT/DELETE need X-API-Key when reached via the tunnel · localhost:8000 direct</small></div>
 
   <div class="tier" style="border-color:#06d6a0; background:rgba(6,214,160,.06);">
-    <div class="label" style="color:#06d6a0;">Local pipeline server (Python + FastAPI) · Track A · one job at a time</div>
+    <div class="label" style="color:#06d6a0;">mlib API process — FastAPI (uvicorn :8000, loopback) · no ML imports</div>
+    <div class="grid">
+      <div class="cell"><b>Front desk</b>validate · check store · enqueue jobs · serve library / analysis / beatmaps · custom-map save</div>
+      <div class="cell"><b>Tunnel-aware auth</b><span class="dim">key required only for cf-ray (Cloudflare-forwarded) writes; local dev trusted</span></div>
+      <div class="cell"><b>SongResolver</b>yt-dlp <code>ytsearch:</code> <span class="badge future">mlib catalog later</span></div>
+    </div>
+  </div>
+
+  <div class="arrow">⬍<small>SQLite job queue (data/jobs.db, WAL) — durable across restarts · atomic claim · orphan marking</small></div>
+
+  <div class="tier" style="border-color:#c98cff; background:rgba(177,76,255,.06);">
+    <div class="label" style="color:#c98cff;">GPU worker process <span class="badge gpu">CUDA</span> · one job at a time</div>
     <div class="flow">
-      <div class="step"><b>0. Resolve</b><br>SongResolver: yt-dlp <code>ytsearch:</code><br><span class="badge future">mlib later</span></div>
+      <div class="step"><b>1. Fetch</b><br>yt-dlp → temp wav (≤12 min guard)</div>
       <div class="sep">→</div>
-      <div class="step"><b>1. Fetch</b><br>yt-dlp → temp wav + metadata (≤12 min guard)</div>
+      <div class="step"><b>2. Separate</b><br>Demucs htdemucs<br>drums/bass/vocals/other</div>
       <div class="sep">→</div>
-      <div class="step"><b>2. Separate</b><br>librosa HPSS now<br><span class="badge stretch">Demucs stems</span></div>
+      <div class="step"><b>3. Transcribe</b><br>basic-pitch → real notes<br>(vocals/other/bass)</div>
       <div class="sep">→</div>
-      <div class="step"><b>3. Analyze</b><br>beat grid + BPM, drum onsets, pYIN sustains (pitch optional + confidence), 15 Hz energy curves, roster</div>
+      <div class="step"><b>4. Analyze</b><br>beat grid · drum onsets kick/snare/hat · PANNs lead instrument · energy curves</div>
       <div class="sep">→</div>
-      <div class="step"><b>4. Generate</b><br>snap to 16ths → density filter (E 1.5 / M 3 / H 5 n/s) → pitch-motion lanes · deterministic &amp; pinned</div>
+      <div class="step"><b>5. Generate v7</b><br>chart Hard, down-chart E⊂M⊂H · lanes · chords · fills</div>
       <div class="sep">→</div>
-      <div class="step"><b>5. Clean up</b><br>delete audio, always</div>
+      <div class="step"><b>6. Clean up</b><br>delete audio, always</div>
     </div>
   </div>
 
@@ -87,17 +98,18 @@
   <div class="tier" style="border-color:#ffd166; background:rgba(255,209,102,.06);">
     <div class="label" style="color:#ffd166;">Local storage (data/, gitignored)</div>
     <div class="grid">
-      <div class="cell"><b>library.json</b>song index: title, channel, duration, BPM, status (queued/processing/ready/error), difficulties</div>
-      <div class="cell"><b>songs/&lt;id&gt;/analysis.json</b>facts about the song: events, beat grid, energy curves, roster — the expensive cached artifact</div>
-      <div class="cell"><b>songs/&lt;id&gt;/beatmap.&lt;diff&gt;.json</b>derived, versioned, never regenerated at play time — keeps scores comparable</div>
-      <div class="cell"><b>No audio kept</b>analysis-only; playback always streams from YouTube</div>
+      <div class="cell"><b>library.json</b>song index: title, BPM, status (queued/processing/ready/error/outdated), per-map metadata</div>
+      <div class="cell"><b>songs/&lt;id&gt;/analysis.json</b>facts: events, beat grid, energy curves, roster, lead instrument — the cached artifact</div>
+      <div class="cell"><b>songs/&lt;id&gt;/beatmap.&lt;key&gt;.json</b>generated (E/M/H, versioned) or custom maps; deterministic, pinned</div>
+      <div class="cell"><b>jobs.db + no audio</b>queue state survives restarts; song audio never kept — playback streams from YouTube</div>
     </div>
   </div>
 
   <div class="chain">song <b>yt:&lt;videoId&gt;</b>
- └─ analysis   <b>songId + analysisVersion</b>      ← facts (events, curves, roster)
-     └─ beatmap <b>songId/g&lt;genVer&gt;/&lt;diff&gt;/standard</b> ← derived, deterministic, PINNED
-         └─ score (localStorage, references beatmapId) ← leaderboard-ready later</div>
+ └─ analysis   <b>songId + analysisVersion (6)</b>      ← facts (events, curves, roster, lead instrument)
+     └─ beatmap <b>songId/g&lt;genVer 7&gt;/&lt;easy|medium|hard&gt;/standard</b> ← down-charted: easy ⊂ medium ⊂ hard
+        + custom <b>songId/&lt;name&gt;</b> (mode=custom)         ← hand-authored, never goes outdated
+         └─ score (localStorage, references beatmapId)    ← per-map personal bests</div>
 
   <div class="duo">
     <div class="note">
@@ -106,9 +118,10 @@
       Embedding disabled (error 101/150) ⇒ song flagged, no workaround by design.
     </div>
     <div class="note">
-      <span class="label">YouTube — at analysis time</span>
-      yt-dlp fetches audio once, locally, for analysis only — discarded after beatmap generation.
-      Hosted future: same pipeline behind the same API, store backed by a shared DB (one analysis per song, globally).
+      <span class="label">Deployment</span>
+      Native Windows: <code>start-beatfall.bat</code> runs API + worker. <span class="badge future">planned</span>
+      cloudflared publishes <code>api.musiclabs.uk</code>; frontend ships static to <code>beatfall.&lt;tld&gt;</code>.
+      Docker/Redis were dropped; container design kept in the spec for a future hosted version.
     </div>
   </div>
 </div>
