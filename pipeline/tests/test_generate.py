@@ -26,14 +26,35 @@ def test_difficulty_densities():
     assert len(maps["medium"].notes) <= DENSITY["medium"] * dur + 1
     assert len(maps["easy"].notes) < len(maps["medium"].notes) < len(maps["hard"].notes)
 
-def test_no_same_lane_within_150ms():
+def test_same_lane_gap_respects_difficulty():
+    from beatfall_pipeline.generate import DIFF
     events = [_onset(round(0.125 * i, 3)) for i in range(160)]
     for m in generate_beatmaps(_doc(events)):
+        gap = DIFF[m.difficulty]["lane_gap"]
         last: dict[int, float] = {}
         for n in m.notes:
             if n.lane in last:
-                assert n.t - last[n.lane] >= 0.15 - 1e-9
+                assert n.t - last[n.lane] >= gap - 1e-9
             last[n.lane] = n.t
+
+def test_hard_allows_rapid_same_lane_melody():
+    # repeated-pitch 16th melody run (133ms apart) must STAY in one lane on hard,
+    # not scatter to other lanes because of a lane-cooldown rotation
+    mel = [Event(t=round(4.0 + 0.125 * i, 3), stem="vocals", kind="sustain",
+                 strength=0.8, dur=0.2, pitch=60.0, pitchConf=0.9) for i in range(4)]
+    maps = {m.difficulty: m for m in generate_beatmaps(_doc(mel))}
+    notes = maps["hard"].notes
+    assert len(notes) >= 3                      # density budget may trim the tail
+    assert len({n.lane for n in notes}) == 1    # but survivors must NOT scatter across lanes
+
+def test_difficulties_are_strict_subsets():
+    events = [_onset(round(2.0 + 0.125 * i, 3), s=0.4 + (i % 6) * 0.1,
+                     drum=["kick", "snare", "hat", None][i % 4]) for i in range(120)]
+    maps = {m.difficulty: m for m in generate_beatmaps(_doc(events))}
+    def keys(m):
+        return {(n.t, n.lane, n.type) for n in m.notes}
+    assert keys(maps["easy"]) <= keys(maps["medium"]) <= keys(maps["hard"])
+    assert len(maps["easy"].notes) < len(maps["hard"].notes)
 
 def test_holds_from_sustains():
     events = [Event(t=2.0, stem="other", kind="sustain", strength=0.8, dur=1.5, pitch=65.0, pitchConf=0.9),
