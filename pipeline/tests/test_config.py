@@ -12,11 +12,12 @@ def reset_config_after_test():
 
 
 def test_defaults(monkeypatch):
-    for var in ("STORE_ROOT", "REDIS_URL", "CORS_ORIGINS", "API_KEY", "MAX_VIDEO_DURATION_S"):
+    for var in ("STORE_ROOT", "QUEUE_DB", "REDIS_URL", "CORS_ORIGINS", "API_KEY", "MAX_VIDEO_DURATION_S"):
         monkeypatch.delenv(var, raising=False)
     from beatfall_pipeline import config
     importlib.reload(config)
     assert config.STORE_ROOT.name == "data"
+    assert config.QUEUE_DB.name == "jobs.db"
     assert config.REDIS_URL == ""
     assert config.CORS_ORIGINS == ["http://localhost:5173"]
     assert config.API_KEY == ""
