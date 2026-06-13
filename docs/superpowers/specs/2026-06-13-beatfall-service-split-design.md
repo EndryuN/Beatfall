@@ -1,7 +1,30 @@
 # Beatfall Service Split — Design Document
 
 **Date:** 2026-06-13
-**Status:** Approved (brainstorming complete; grounded in code audit)
+**Status:** Approved — **amended to NATIVE WINDOWS mode** (Docker dropped by decision after
+Docker Desktop failed to run; see Amendment below)
+
+## AMENDMENT: native Windows deployment (supersedes container sections)
+
+Docker and Redis are removed. The same architecture ships as native Windows processes:
+
+- **mlib API** = `uvicorn beatfall_pipeline.main:app` on `127.0.0.1:8000` (one process).
+- **GPU worker** = `python -m beatfall_pipeline.worker_main` (second process; uses the host
+  CUDA stack that already works today).
+- **Queue** = `queue_sqlite.SqliteJobQueue` — a WAL-mode SQLite db at `STORE_ROOT/jobs.db`
+  with the same five-method interface (`submit/get/set/claim/finish/mark_orphans`); atomic
+  claim via `UPDATE … RETURNING`. Durable across restarts. Redis can replace it later behind
+  the same interface if multi-machine workers ever happen.
+- **Tunnel** = native `cloudflared` installed as a Windows service
+  (`cloudflared service install <token>`), routing `api.musiclabs.uk` → `http://localhost:8000`.
+- **Runbook** = `start-beatfall.bat` launches both processes in minimized titled windows
+  (PATH includes ffmpeg); `stop-beatfall.bat` kills them by window title;
+  `service-config.bat` (gitignored, from a committed `.example`) sets `API_KEY`/`CORS_ORIGINS`.
+  A Startup-folder shortcut makes it unattended.
+
+Auth, CORS, config.py, the client changes, and the contracts are unchanged from the sections
+below. Container sections below are retained for the future hosted version but are NOT being
+built now.
 
 ## Goal
 
