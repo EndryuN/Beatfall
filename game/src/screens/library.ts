@@ -263,7 +263,10 @@ export function renderLibrary(root: HTMLElement, h: LibraryHandlers): void {
           await startAdd(b.dataset.pick!);
         }));
     } catch (err) {
-      banner.textContent = `⚠ ${err instanceof Error ? err.message : err}`;
+      const msg = err instanceof Error ? err.message : String(err);
+      banner.textContent = msg.includes('401')
+        ? '⚠ rejected (401) — set your API key in ⚙ settings'
+        : `⚠ ${msg}`;
       showingResults = false;
       refresh();
     }
