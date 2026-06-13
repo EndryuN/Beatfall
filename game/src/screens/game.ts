@@ -21,7 +21,13 @@ export interface GameResult {
   medianDeltaMs: number | null;
 }
 
-export interface GameHandlers { onReplay: () => void; onExit: () => void; }
+export interface GameHandlers {
+  onReplay: () => void;
+  onExit: () => void;
+  currentKey: string;                                   // the map being played
+  maps: { key: string; mode: 'standard' | 'custom' }[]; // all maps for this song (pause-menu switch)
+  onChangeDifficulty: (key: string) => void;            // re-launches the song on another map
+}
 
 export async function runGame(root: HTMLElement, bm: Beatmap,
                               handlers: GameHandlers,
@@ -36,6 +42,8 @@ export async function runGame(root: HTMLElement, bm: Beatmap,
         <div class="overlay">
           <div id="ov-text"></div>
           <div id="pause-menu" class="hidden">
+            <div class="pm-label">difficulty — switching restarts the song</div>
+            <div id="pm-diffs" class="pm-diffs"></div>
             <button id="pm-resume">▶ resume</button>
             <button id="pm-restart" class="ghost">↻ restart song</button>
             <button id="pm-quit" class="ghost">✕ quit to library</button>
@@ -84,6 +92,20 @@ export async function runGame(root: HTMLElement, bm: Beatmap,
   root.querySelector('#pm-resume')!.addEventListener('click', () => yt.play());
   root.querySelector('#pm-restart')!.addEventListener('click', handlers.onReplay);
   root.querySelector('#pm-quit')!.addEventListener('click', handlers.onExit);
+
+  const DIFF_LABEL: Record<string, string> = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
+  const diffs = root.querySelector('#pm-diffs') as HTMLElement;
+  diffs.innerHTML = handlers.maps.map(m => {
+    const cls = m.mode === 'custom' ? 'medium' : m.key;
+    const label = m.mode === 'custom' ? `★ ${m.key}` : (DIFF_LABEL[m.key] ?? m.key);
+    const current = m.key === handlers.currentKey ? ' style="outline:2px solid #fff"' : '';
+    return `<button class="chip ${cls}" data-diff="${m.key}"${current}>${label}</button>`;
+  }).join('');
+  diffs.querySelectorAll<HTMLButtonElement>('[data-diff]').forEach(b =>
+    b.addEventListener('click', () => {
+      if (b.dataset.diff === handlers.currentKey) { yt.play(); return; }   // same map → just resume
+      handlers.onChangeDifficulty(b.dataset.diff!);
+    }));
 
   const pressed = [false, false, false, false];
   const holding: (ReturnType<Chart['findHittable']> | null)[] = [null, null, null, null];

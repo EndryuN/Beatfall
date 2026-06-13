@@ -17,14 +17,28 @@ function goLibrary(): void {
   });
 }
 
+const STD_ORDER: Record<string, number> = { easy: 0, medium: 1, hard: 2 };
+
 async function goGame(songId: string, key: string): Promise<void> {
   teardown?.(); teardown = null;
-  const [bm, analysis] = await Promise.all([
+  const [bm, analysis, songs] = await Promise.all([
     api.beatmap(songId, key),
     api.analysis(songId).catch(() => null),   // band still grooves (default duo) without it
+    api.songs().catch(() => []),              // for the pause-menu difficulty switcher
   ]);
-  teardown = await runGame(app, bm,
-    { onReplay: () => goGame(songId, key), onExit: goLibrary }, analysis);
+  const entry = songs.find(e => e.songId === songId);
+  const maps = (entry?.maps ?? [{ key, mode: 'standard' as const }])
+    .map(m => ({ key: m.key, mode: m.mode }))
+    .sort((a, b) =>
+      (a.mode === b.mode ? 0 : a.mode === 'standard' ? -1 : 1) ||
+      (STD_ORDER[a.key] ?? 9) - (STD_ORDER[b.key] ?? 9) || a.key.localeCompare(b.key));
+  teardown = await runGame(app, bm, {
+    onReplay: () => goGame(songId, key),
+    onExit: goLibrary,
+    currentKey: key,
+    maps,
+    onChangeDifficulty: (k: string) => goGame(songId, k),
+  }, analysis);
 }
 
 async function goEditor(songId: string, name: string, baseKey: string | null): Promise<void> {
