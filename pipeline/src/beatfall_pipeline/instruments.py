@@ -7,13 +7,16 @@ puts a violinist on stage instead of a guitarist.
 import numpy as np
 
 CATEGORY_LABELS: dict[str, set[str]] = {
-    "strings": {"Violin, fiddle", "Cello", "Viola", "Bowed string instrument",
-                "Orchestra", "String section", "Pizzicato"},
-    "guitar": {"Guitar", "Electric guitar", "Acoustic guitar",
-               "Steel guitar, slide guitar", "Strum", "Banjo", "Ukulele"},
-    "piano": {"Piano", "Electric piano", "Harpsichord", "Keyboard (musical)"},
-    "synth": {"Synthesizer", "Sampler", "Electronic organ", "Organ", "Hammond organ",
-              "Electronic music"},
+    # only genuine string-instrument labels — "Orchestra"/"String section" fire on any lush
+    # production and produced spurious violinists, so they're deliberately excluded.
+    "strings": {"Violin, fiddle", "Cello", "Viola", "Bowed string instrument", "Pizzicato"},
+    "guitar": {"Guitar", "Electric guitar", "Acoustic guitar", "Steel guitar, slide guitar",
+               "Strum", "Banjo", "Ukulele", "Plucked string instrument"},
+    # keyboards lumped together — Demucs+PANNs can't reliably split piano / e-piano / organ,
+    # and a listener hears them all as "the keys" → pianist.
+    "piano": {"Piano", "Electric piano", "Harpsichord", "Keyboard (musical)",
+              "Organ", "Electronic organ", "Hammond organ"},
+    "synth": {"Synthesizer", "Sampler", "Electronic music"},
     "brass": {"Trumpet", "Trombone", "Brass instrument", "Saxophone", "French horn"},
 }
 MIN_SCORE = 0.08
