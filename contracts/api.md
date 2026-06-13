@@ -1,17 +1,27 @@
 # Beatfall pipeline REST API (v1)
 
-Base URL: `http://localhost:8000/api`. JSON everywhere. CORS allows `http://localhost:5173`.
+Base URL: `http://localhost:8000/api` locally, or `https://api.musiclabs.uk/api` for the remote mlib service. JSON everywhere. CORS origins are configured via env.
 
 ## GET /search?q=<query>
 Resolve a song search. If `q` is a YouTube URL or 11-char video id, return a single candidate.
 → 200 `{ "candidates": [ { "videoId": "dQw4w9WgXcQ", "title": "...", "channel": "...", "duration": 213.0, "thumbnail": "https://..." } ] }`
 
 ## POST /songs  body: { "videoId": "dQw4w9WgXcQ", "force": false }
+Requires header `X-API-Key: <key>` when the service is configured with API_KEY (401 otherwise). GETs never require it.
 Idempotent. If beatmaps already exist for (videoId, current versions) → 200 `{ "songId": "yt:dQw4w9WgXcQ", "status": "ready" }`.
 Otherwise (or when `force: true` — manual remap) enqueue → 202 `{ "songId": "yt:dQw4w9WgXcQ", "jobId": "j-1", "status": "queued" }`.
 
 ## DELETE /songs/{songId}
+Requires header `X-API-Key: <key>` when the service is configured with API_KEY (401 otherwise). GETs never require it.
 Removes the song's analysis, beatmaps, and library entry. → 204, or 404 if unknown.
+
+## PUT /songs/{song_id}/custom/{name}  body: { "notes": [...] }
+Requires header `X-API-Key: <key>` when the service is configured with API_KEY (401 otherwise). GETs never require it.
+Save or update a custom beatmap. → 200 `{ "beatmapId": "...", "songId": "...", "difficulty": "...", "mode": "custom", ... }`, or 404 if song not ready.
+
+## DELETE /songs/{song_id}/custom/{name}
+Requires header `X-API-Key: <key>` when the service is configured with API_KEY (401 otherwise). GETs never require it.
+Remove a custom beatmap. → 204, or 404 if not found.
 
 ## GET /jobs/{jobId}
 → 200 `{ "jobId": "j-1", "songId": "yt:...", "stage": "queued|downloading|separating|analyzing|generating|done|error", "progress": 0.62, "error": null }`
