@@ -183,6 +183,22 @@ def test_hard_does_not_fill_quiet_parts():
     maps = {m.difficulty: m for m in generate_beatmaps(_doc(events, drums_curve=curve))}
     assert len(maps["hard"].notes) <= len(events)                # no synthetic notes added
 
+def test_never_more_than_two_concurrent_holds():
+    # four long sustains all overlapping in time
+    mel = [Event(t=round(4.0 + 0.3 * i, 3), stem="vocals", kind="sustain",
+                 strength=0.9, dur=2.0, pitch=60.0 + i * 4, pitchConf=0.9) for i in range(4)]
+    for m in generate_beatmaps(_doc(mel, drums_curve=[1.0] * 300)):
+        edges = []
+        for n in m.notes:
+            if n.type == "hold":
+                edges += [(n.t, 1), (n.t + (n.dur or 0), -1)]
+        edges.sort()
+        cur = mx = 0
+        for _, d in edges:
+            cur += d
+            mx = max(mx, cur)
+        assert mx <= 2, f"{m.difficulty}: {mx} holds overlap"
+
 def test_deterministic():
     events = [_onset(round(0.125 * i, 3), s=0.5 + (i % 7) * 0.07) for i in range(160)]
     a = [m.model_dump_json() for m in generate_beatmaps(_doc(events))]

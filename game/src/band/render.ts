@@ -151,18 +151,35 @@ function drawRolePropAndArms(ctx: CanvasRenderingContext2D, m: MemberState, band
 
   switch (m.role) {
     case 'drummer': {
-      // snare in front + alternating stick arms
-      ctx.fillStyle = '#d9d9e8';
-      ctx.beginPath(); ctx.ellipse(0, -10 * s, 16 * s, 6 * s, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-      const lift = swing * 10 * s;
+      // a little kit: two cymbals on stands flanking him, a snare in front
+      ctx.strokeStyle = '#4a4a55'; ctx.lineWidth = 1.6 * s;
       ctx.beginPath();
-      ctx.moveTo(-bodyW2(s), armY); ctx.lineTo(-14 * s, -16 * s - Math.max(0, lift));
-      ctx.moveTo(bodyW2(s), armY); ctx.lineTo(14 * s, -16 * s - Math.max(0, -lift));
+      ctx.moveTo(-18 * s, 0); ctx.lineTo(-18 * s, -22 * s);     // left cymbal stand
+      ctx.moveTo(18 * s, 0); ctx.lineTo(18 * s, -24 * s);       // right cymbal stand
       ctx.stroke();
-      ctx.lineWidth = 2 * s;                      // sticks
+      ctx.fillStyle = '#e8c45a';                                 // cymbals
+      ctx.beginPath(); ctx.ellipse(-18 * s, -23 * s, 8 * s, 2.2 * s, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(18 * s, -25 * s, 8 * s, 2.2 * s, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      // snare drum in front (legs → shell → head), drawn over the body
+      ctx.strokeStyle = OUTLINE; ctx.lineWidth = 2 * s;
       ctx.beginPath();
-      ctx.moveTo(-14 * s, -16 * s - Math.max(0, lift)); ctx.lineTo(-5 * s, -13 * s);
-      ctx.moveTo(14 * s, -16 * s - Math.max(0, -lift)); ctx.lineTo(5 * s, -13 * s);
+      ctx.moveTo(-7 * s, 0); ctx.lineTo(-6 * s, -8 * s);
+      ctx.moveTo(7 * s, 0); ctx.lineTo(6 * s, -8 * s); ctx.stroke();
+      ctx.fillStyle = '#c23b4c';
+      ctx.fillRect(-12 * s, -14 * s, 24 * s, 6 * s); ctx.strokeRect(-12 * s, -14 * s, 24 * s, 6 * s);
+      ctx.fillStyle = '#d9d9e8';
+      ctx.beginPath(); ctx.ellipse(0, -14 * s, 12 * s, 3.6 * s, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      // arms + sticks, alternating with the music
+      const lift = swing * 10 * s;
+      ctx.lineWidth = 3.5 * s;
+      ctx.beginPath();
+      ctx.moveTo(-bodyW2(s), armY); ctx.lineTo(-11 * s, -19 * s - Math.max(0, lift));
+      ctx.moveTo(bodyW2(s), armY); ctx.lineTo(11 * s, -19 * s - Math.max(0, -lift));
+      ctx.stroke();
+      ctx.lineWidth = 2 * s;                                     // sticks tip toward the snare
+      ctx.beginPath();
+      ctx.moveTo(-11 * s, -19 * s - Math.max(0, lift)); ctx.lineTo(-3 * s, -15 * s);
+      ctx.moveTo(11 * s, -19 * s - Math.max(0, -lift)); ctx.lineTo(3 * s, -15 * s);
       ctx.stroke();
       break;
     }

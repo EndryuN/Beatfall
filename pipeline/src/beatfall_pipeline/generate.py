@@ -6,6 +6,7 @@ BAR_SLOTS = GRID_DIV * 4   # 4/4 assumed: 16 slots per bar
 LEAD_IN_S = 2.0            # no notes before this — the player needs a runway
 SNAP_TOL_FRAC = 0.35       # onsets farther than this fraction of a slot from the grid are noise
 MAX_BUDGET_CARRY = 1.5     # unused note budget rolls into the next window, but doesn't pile up forever
+MAX_CONCURRENT_HOLDS = 2   # never require more than two held notes at the same time
 
 FILL_ENERGY = 0.72         # hard streams only where the song is genuinely loud
 FILL_STRENGTH = 0.25       # synthetic fills are first to go when the global cap trims
@@ -207,11 +208,18 @@ def _place(events: list[Event], lanes: list[int], grid: list[float],
     Returns (source event, note, is_chord_partner) so easier tiers can be derived."""
     placed: list[tuple[Event, Note, bool]] = []
     last_in_lane: dict[int, float] = {}
+    hold_ends: list[float] = []                    # end times of currently-active holds
     for e, lane in zip(events, lanes):
         for cand in (lane, 3 - lane, (lane + 1) % 4, (lane + 2) % 4):
             end_t = e.t + (e.dur or 0) if e.kind == "sustain" else e.t
             if e.t - last_in_lane.get(cand, -10.0) >= lane_gap:
                 hold_dur = round(e.dur, 3) if e.kind == "sustain" and e.dur else None
+                if hold_dur is not None:            # never hold more than 2 at once → demote to tap
+                    hold_ends[:] = [x for x in hold_ends if x > e.t]
+                    if len(hold_ends) >= MAX_CONCURRENT_HOLDS:
+                        hold_dur = None
+                    else:
+                        hold_ends.append(e.t + hold_dur)
                 placed.append((e, Note(t=e.t, lane=cand,
                                        type="hold" if hold_dur else "tap", dur=hold_dur), False))
                 last_in_lane[cand] = end_t
