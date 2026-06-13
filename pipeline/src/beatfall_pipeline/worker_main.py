@@ -1,5 +1,6 @@
 """GPU worker entrypoint: consume jobs from the SQLite queue, run the pipeline, write the store."""
 import logging
+import time
 
 from . import config
 from .queue_sqlite import SqliteJobQueue
@@ -46,7 +47,11 @@ def main() -> None:
     steps = RealSteps()
     log.info("worker up — store=%s queue=%s", config.STORE_ROOT, config.QUEUE_DB)
     while True:
-        run_one(q, store, steps)
+        try:
+            run_one(q, store, steps)
+        except Exception:
+            log.exception("worker loop error")
+            time.sleep(2)
 
 if __name__ == "__main__":
     main()

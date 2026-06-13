@@ -16,6 +16,11 @@ def test_mutations_need_key_when_configured(tmp_path, monkeypatch):
                headers={"X-API-Key": "sekrit"})
     assert r.status_code == 202
     assert c.get("/api/songs").status_code == 200          # reads stay open
+    # Verify 401 includes CORS header when origin is allowed
+    r401 = c.post("/api/songs", json={"videoId": "dQw4w9WgXcQ"},
+                  headers={"Origin": "http://localhost:5173"})
+    assert r401.status_code == 401
+    assert r401.headers.get("access-control-allow-origin") == "http://localhost:5173"
 
 def test_auth_disabled_when_no_key(tmp_path, monkeypatch):
     c, _ = _client(tmp_path, monkeypatch, key="")

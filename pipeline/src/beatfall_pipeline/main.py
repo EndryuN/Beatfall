@@ -1,3 +1,5 @@
+import logging
+import secrets
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -5,6 +7,8 @@ from pydantic import BaseModel
 from . import ANALYSIS_VERSION, GENERATOR_VERSION, config
 from .jobs import JobQueue, PipelineSteps
 from .store import BeatmapStore
+
+log = logging.getLogger("mlib")
 
 class AddSongBody(BaseModel):
     videoId: str
@@ -27,16 +31,17 @@ def create_app(store: BeatmapStore | None = None, steps: PipelineSteps | None = 
             queue = SqliteJobQueue(config.QUEUE_DB)
 
     app = FastAPI(title="mlib")
-    app.add_middleware(CORSMiddleware, allow_origins=config.CORS_ORIGINS,
-                       allow_methods=["*"], allow_headers=["*"])
 
     @app.middleware("http")
     async def require_api_key(request, call_next):
         if config.API_KEY and request.method in ("POST", "PUT", "DELETE") \
-                and request.headers.get("x-api-key") != config.API_KEY:
+                and not secrets.compare_digest(request.headers.get("x-api-key") or "", config.API_KEY):
             return JSONResponse(status_code=401,
                                 content={"detail": "invalid or missing API key"})
         return await call_next(request)
+
+    app.add_middleware(CORSMiddleware, allow_origins=config.CORS_ORIGINS,
+                       allow_methods=["*"], allow_headers=["*"])
 
     @app.get("/api/search")
     def api_search(q: str):
@@ -52,6 +57,7 @@ def create_app(store: BeatmapStore | None = None, steps: PipelineSteps | None = 
         try:
             job = queue.submit(body.videoId)
         except Exception:
+            log.exception("enqueue failed")
             raise HTTPException(503, "job queue unavailable")
         return JSONResponse(status_code=202,
                             content={"songId": song_id, "jobId": job.id, "status": "queued"})
