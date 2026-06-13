@@ -48,7 +48,7 @@ class SqliteJobQueue:
             c.executescript(_SCHEMA)
 
     def _conn(self) -> sqlite3.Connection:
-        c = sqlite3.connect(self.db_path, timeout=10)
+        c = sqlite3.connect(self.db_path, timeout=10, isolation_level="IMMEDIATE")
         c.row_factory = sqlite3.Row
         c.execute("PRAGMA journal_mode=WAL")
         return c
