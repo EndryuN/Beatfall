@@ -31,6 +31,7 @@ export async function runGame(root: HTMLElement, bm: Beatmap,
       <div class="highway-col">
         <canvas></canvas>
         <button class="pause-btn" id="pause-btn" title="pause (Esc)">⏸</button>
+        <button class="pause-btn" id="restart-btn" style="left:56px" title="restart song">↺</button>
         <div class="overlay">
           <div id="ov-text"></div>
           <div id="pause-menu" class="hidden">
@@ -77,6 +78,7 @@ export async function runGame(root: HTMLElement, bm: Beatmap,
     else if (sync.state === 'live' || sync.state === 'countdown') yt.pause();
   }
   (root.querySelector('#pause-btn') as HTMLElement).addEventListener('click', togglePause);
+  (root.querySelector('#restart-btn') as HTMLElement).addEventListener('click', handlers.onReplay);
   root.querySelector('#pm-resume')!.addEventListener('click', () => yt.play());
   root.querySelector('#pm-restart')!.addEventListener('click', handlers.onReplay);
   root.querySelector('#pm-quit')!.addEventListener('click', handlers.onExit);
