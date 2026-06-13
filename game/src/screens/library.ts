@@ -1,5 +1,6 @@
 import { api, BASE } from '../api';
 import { bestForMap } from '../scores';
+import { loadSettings, saveSettings } from '../settings-store';
 import type { LibraryEntry, MapInfo } from '../types';
 import { videoIdOf } from '../types';
 
@@ -24,6 +25,7 @@ export function renderLibrary(root: HTMLElement, h: LibraryHandlers): void {
     <div class="topbar">
       <input id="q" placeholder="🔍 Search a song or paste a YouTube link…">
       <button id="add">Add</button>
+      <button id="lanes-toggle" title="switch highway lane count"></button>
       <button id="settings">⚙</button>
     </div>
     <div id="banner" style="padding:0 12px;color:#ff5e7a"></div>
@@ -32,6 +34,19 @@ export function renderLibrary(root: HTMLElement, h: LibraryHandlers): void {
   const list = root.querySelector('#list') as HTMLElement;
   const banner = root.querySelector('#banner') as HTMLElement;
   root.querySelector('#settings')!.addEventListener('click', h.onSettings);
+
+  const lanesBtn = root.querySelector('#lanes-toggle') as HTMLButtonElement;
+  const paintLanes = () => {
+    const n = loadSettings().laneCount;
+    lanesBtn.textContent = n === 3 ? '🎹 3-lane' : '🎹 4-lane';
+  };
+  lanesBtn.addEventListener('click', () => {
+    const s = loadSettings();
+    s.laneCount = s.laneCount === 3 ? 4 : 3;
+    saveSettings(s);
+    paintLanes();
+  });
+  paintLanes();
 
   let showingResults = false;
   const expanded = new Set<string>();

@@ -121,6 +121,7 @@ export class Highway {
         { stem: 'other', color: '#06d6a0', label: this.leadLabel },
       ];
       railDefs.forEach((r, lane) => {
+        if (lane >= this.laneCount) return;
         const curve = has(r.stem);
         const x0 = lane * laneW + 2;
         const innerW = laneW - 4;

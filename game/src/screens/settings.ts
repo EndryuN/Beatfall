@@ -7,6 +7,8 @@ export function renderSettings(root: HTMLElement, onBack: () => void): void {
       <h2>Settings</h2>
       <div>Keys (click then press a key): ${[0, 1, 2, 3].map(i =>
         `<button class="chip medium" data-key="${i}">${s.keyCodes[i].replace('Key', '')}</button>`).join(' ')}</div>
+      <label>Highway lanes:
+        <select id="lanes"><option value="4">4 lanes (D F J K)</option><option value="3">3 lanes — classic Tap Tap (D F J)</option></select></label>
       <label>Highway side:
         <select id="side"><option value="left">left</option><option value="right">right</option></select></label>
       <label>Theme:
@@ -18,6 +20,7 @@ export function renderSettings(root: HTMLElement, onBack: () => void): void {
         mostly EARLY hits → increase offset; mostly LATE → decrease. (±5 ms steps; proper metronome test is post-hackathon.)</p>
       <button id="back">save & back</button>
     </div>`;
+  (root.querySelector('#lanes') as HTMLSelectElement).value = String(s.laneCount);
   (root.querySelector('#side') as HTMLSelectElement).value = s.highwaySide;
   (root.querySelector('#theme') as HTMLSelectElement).value = s.theme;
   root.querySelectorAll<HTMLButtonElement>('[data-key]').forEach(b =>
@@ -32,6 +35,7 @@ export function renderSettings(root: HTMLElement, onBack: () => void): void {
       window.addEventListener('keydown', h);
     }));
   root.querySelector('#back')!.addEventListener('click', () => {
+    s.laneCount = Number((root.querySelector('#lanes') as HTMLSelectElement).value) === 3 ? 3 : 4;
     s.highwaySide = (root.querySelector('#side') as HTMLSelectElement).value as 'left' | 'right';
     s.theme = (root.querySelector('#theme') as HTMLSelectElement).value as 'stage' | 'neon';
     s.scrollSpeed = Number((root.querySelector('#speed') as HTMLInputElement).value);

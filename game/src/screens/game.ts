@@ -2,6 +2,7 @@ import { Band } from '../band/band';
 import { drawBand } from '../band/render';
 import { Chart } from '../engine/chart';
 import { SongClock } from '../engine/clock';
+import { projectTo3 } from '../engine/project';
 import { judgeDelta, medianMs, HIT_WINDOW_MS, Scoreboard } from '../engine/judge';
 import { SyncMachine } from '../engine/sync';
 import { InputMapper } from '../input';
@@ -57,13 +58,14 @@ export async function runGame(root: HTMLElement, bm: Beatmap,
   const vizCtx = vizCanvas.getContext('2d')!;
   const band = new Band(analysis?.roster ?? ['drummer', 'guitarist'], analysis?.energyCurves ?? null);
 
-  const chart = new Chart(bm);
+  const lanes = settings.laneCount;
+  const chart = new Chart(lanes === 3 ? { ...bm, notes: projectTo3(bm.notes) } : bm);
   const clock = new SongClock();
   // No blocking count-in: maps have a 2 s note-free lead-in as the runway.
   const sync = new SyncMachine(0);
   const board = new Scoreboard();
-  const mapper = new InputMapper(settings.keyCodes);
-  const highway = new Highway(canvas, THEMES[settings.theme]);
+  const mapper = new InputMapper(settings.keyCodes.slice(0, lanes));
+  const highway = new Highway(canvas, THEMES[settings.theme], lanes);
   const yt = new YouTubePane();
   const overlay = root.querySelector('.overlay') as HTMLElement;
   const ovText = root.querySelector('#ov-text') as HTMLElement;
