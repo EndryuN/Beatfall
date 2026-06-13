@@ -29,7 +29,7 @@ pipeline/                 Python — the mlib service (API + GPU worker)
     analyze.py            librosa analysis + orchestrates stems/transcribe/instruments
     separate.py           Demucs htdemucs stem separation (GPU)
     transcribe.py         basic-pitch audio→notes (the "piano cover" pass)
-    instruments.py        PANNs lead-instrument tagging (violin/guitar/piano/synth/brass)
+    instruments.py        PANNs lead-instrument tagging → band member (strings=violinist, piano=pianist, else guitarist)
     generate.py           beatmap generator (down-charting; the DIFF table is the tuning surface)
     youtube.py            yt-dlp fetch + search
   tests/                  pytest (73 passing)
@@ -99,7 +99,7 @@ Tuning lives in the `DIFF` table in generate.py.
 
 ## Versioning (important)
 
-`__init__.py` holds `ANALYSIS_VERSION` (currently 6) and `GENERATOR_VERSION` (currently 7).
+`__init__.py` holds `ANALYSIS_VERSION` (currently 7) and `GENERATOR_VERSION` (currently 8).
 Bumping either makes existing maps show `status: "outdated"` in the library → user clicks **remap**
 (⟳) to reprocess. Custom (hand-authored) maps have `mode: "custom"`, `generatorVersion: 0`, and
 NEVER go outdated — they survive remaps. Bump the relevant version whenever analysis or generation
@@ -107,11 +107,14 @@ output changes meaningfully.
 
 ## Game specifics
 
-- **Lanes**: maps are stored 4-lane; `engine/project.ts` folds to 3 lanes at play time when the
-  library's 🎹 toggle / settings select chooses 3. Editor is always 4-lane.
-- **Editor** (`screens/editor.ts`): preview / edit / record modes (E, R keys). Record = tap DFJK to
-  the music (holds from key-hold duration, 16th-snap); edit = click-delete, drag-move, +/- hold
-  length, ctrl+z; per-stem waveform rails + beat lines; save & test. Custom maps via PUT.
+- **Lanes**: maps are stored 4-lane (a 3-lane chart is just one that never uses lane 3);
+  `engine/project.ts` folds 4→3 at play time when the library's 🎹 toggle / settings chooses 3.
+  The editor ALSO honors the lane setting (records to 3 lanes, folding any lane-3 notes on load).
+  Settings shows one remappable key per lane (3 in 3-lane).
+- **Editor** (`screens/editor.ts`): preview / edit / record modes (E, R keys). Record = tap keys to
+  the music (holds from key-hold duration, 16th-snap). Edit-mode mouse: click empty = place, click
+  note = select (outlined), drag = move, right-click or Del = remove, +/- stretch selected into a
+  hold, ctrl+z undo. Per-stem waveform rails + beat lines; save & test. Custom maps via PUT.
 - **Sync** (`engine/sync.ts`): YouTube has no ad signal, so ads/buffering = "player says playing but
   content time isn't advancing." Notes freeze during ads/pause; seek → run marked unranked.
 - **Clock** (`engine/clock.ts`): perf.now()-based, reconciled to player time, ignores stale samples.
