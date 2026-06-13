@@ -3,8 +3,9 @@ import tempfile
 from pathlib import Path
 import yt_dlp
 from .models import SongMeta
+from . import config
 
-MAX_DURATION_S = 12 * 60
+MAX_DURATION_S = config.MAX_VIDEO_DURATION_S
 _ID_RE = re.compile(r"^[A-Za-z0-9_-]{11}$")
 
 def extract_video_id(query: str) -> str | None:
