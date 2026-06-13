@@ -4,6 +4,7 @@ export interface Settings {
   scrollSpeed: number;                // px/s note travel speed
   latencyOffsetMs: number;            // added to input timestamps when judging
   theme: 'stage' | 'neon';
+  apiKey?: string;                    // X-API-Key for remote mlib writes
 }
 const DEFAULTS: Settings = {
   keyCodes: ['KeyD', 'KeyF', 'KeyJ', 'KeyK'],

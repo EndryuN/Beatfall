@@ -1,6 +1,13 @@
 import type { AnalysisLite, Beatmap, BeatmapNote, JobStatus, LibraryEntry, SearchCandidate } from './types';
+import { loadSettings } from './settings-store';
 
-const BASE = 'http://localhost:8000/api';
+export const BASE: string =
+  (import.meta.env.VITE_API_BASE as string | undefined) ?? 'http://localhost:8000/api';
+
+function keyHeaders(): Record<string, string> {
+  const k = loadSettings().apiKey;
+  return k ? { 'X-API-Key': k } : {};
+}
 
 async function get<T>(path: string): Promise<T> {
   const r = await fetch(`${BASE}${path}`);
@@ -11,12 +18,12 @@ export const api = {
   search: (q: string) => get<{ candidates: SearchCandidate[] }>(`/search?q=${encodeURIComponent(q)}`),
   addSong: async (videoId: string, force = false) => {
     const r = await fetch(`${BASE}/songs`, { method: 'POST',
-      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ videoId, force }) });
+      headers: { 'Content-Type': 'application/json', ...keyHeaders() }, body: JSON.stringify({ videoId, force }) });
     if (!r.ok) throw new Error(`addSong ${r.status}`);
     return r.json() as Promise<{ songId: string; jobId?: string; status: string }>;
   },
   deleteSong: async (songId: string) => {
-    const r = await fetch(`${BASE}/songs/${songId}`, { method: 'DELETE' });
+    const r = await fetch(`${BASE}/songs/${songId}`, { method: 'DELETE', headers: keyHeaders() });
     if (!r.ok && r.status !== 404) throw new Error(`deleteSong ${r.status}`);
   },
   job: (id: string) => get<JobStatus>(`/jobs/${id}`),
@@ -25,13 +32,13 @@ export const api = {
   analysis: (songId: string) => get<AnalysisLite>(`/songs/${songId}/analysis`),
   saveCustom: async (songId: string, name: string, notes: BeatmapNote[]) => {
     const r = await fetch(`${BASE}/songs/${songId}/custom/${encodeURIComponent(name)}`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      method: 'PUT', headers: { 'Content-Type': 'application/json', ...keyHeaders() },
       body: JSON.stringify({ notes }) });
     if (!r.ok) throw new Error(`saveCustom ${r.status}`);
     return r.json() as Promise<Beatmap>;
   },
   deleteCustom: async (songId: string, key: string) => {
-    const r = await fetch(`${BASE}/songs/${songId}/custom/${encodeURIComponent(key)}`, { method: 'DELETE' });
+    const r = await fetch(`${BASE}/songs/${songId}/custom/${encodeURIComponent(key)}`, { method: 'DELETE', headers: keyHeaders() });
     if (!r.ok && r.status !== 404) throw new Error(`deleteCustom ${r.status}`);
   },
   /** true when the pipeline server is reachable */

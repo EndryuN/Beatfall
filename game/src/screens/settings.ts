@@ -13,6 +13,7 @@ export function renderSettings(root: HTMLElement, onBack: () => void): void {
         <select id="theme"><option value="stage">Dark Stage</option><option value="neon">Neon Arcade</option></select></label>
       <label>Scroll speed <input id="speed" type="range" min="300" max="1200" step="50" value="${s.scrollSpeed}"></label>
       <label>Input offset (ms) <input id="offset" type="number" value="${s.latencyOffsetMs}" step="5"></label>
+      <label>API key <input id="apikey" type="password" value="${s.apiKey ?? ''}" placeholder="needed for remote mlib"></label>
       <p style="color:#888;font-size:13px">Calibration: play an easy song and watch the judgment bias —
         mostly EARLY hits → increase offset; mostly LATE → decrease. (±5 ms steps; proper metronome test is post-hackathon.)</p>
       <button id="back">save & back</button>
@@ -35,6 +36,7 @@ export function renderSettings(root: HTMLElement, onBack: () => void): void {
     s.theme = (root.querySelector('#theme') as HTMLSelectElement).value as 'stage' | 'neon';
     s.scrollSpeed = Number((root.querySelector('#speed') as HTMLInputElement).value);
     s.latencyOffsetMs = Number((root.querySelector('#offset') as HTMLInputElement).value);
+    s.apiKey = (root.querySelector('#apikey') as HTMLInputElement).value.trim() || undefined;
     saveSettings(s);
     onBack();
   });

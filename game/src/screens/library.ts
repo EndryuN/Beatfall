@@ -1,4 +1,4 @@
-import { api } from '../api';
+import { api, BASE } from '../api';
 import { bestForMap } from '../scores';
 import type { LibraryEntry, MapInfo } from '../types';
 import { videoIdOf } from '../types';
@@ -217,7 +217,7 @@ export function renderLibrary(root: HTMLElement, h: LibraryHandlers): void {
     if (showingResults) return;
     jobHtmlCache = await jobRowsHtml();   // poll jobs first so a just-finished song shows as a real row
     try { lastEntries = await api.songs(); banner.textContent = ''; }
-    catch { banner.textContent = '⚠ pipeline server offline (start it on laptop A / localhost:8000)'; }
+    catch { banner.textContent = `⚠ mlib unreachable at ${BASE} — is the service up?`; }
     render();
   }
 
