@@ -12,3 +12,7 @@ dist/
 
 # Local data (song library + beatmaps are user data, not source)
 data/
+
+# Service configuration
+service-config.bat
+data/jobs.db*
