@@ -34,7 +34,11 @@ def create_app(store: BeatmapStore | None = None, steps: PipelineSteps | None = 
 
     @app.middleware("http")
     async def require_api_key(request, call_next):
-        if config.API_KEY and request.method in ("POST", "PUT", "DELETE") \
+        # The API binds to loopback, so the only non-local ingress is the Cloudflare tunnel,
+        # which stamps 'cf-ray' on everything it forwards. Require the key for public
+        # (tunnelled) writes; direct local requests — dev on this machine — are trusted.
+        via_tunnel = "cf-ray" in request.headers
+        if config.API_KEY and via_tunnel and request.method in ("POST", "PUT", "DELETE") \
                 and not secrets.compare_digest(request.headers.get("x-api-key") or "", config.API_KEY):
             return JSONResponse(status_code=401,
                                 content={"detail": "invalid or missing API key"})
