@@ -1,6 +1,7 @@
 import { api } from '../api';
 import { SongClock } from '../engine/clock';
 import { InputMapper } from '../input';
+import { projectTo3 } from '../engine/project';
 import { Highway } from '../render/highway';
 import { THEMES } from '../render/theme';
 import { drawVisualizer } from '../render/visualizer';
@@ -64,8 +65,8 @@ export async function runEditor(root: HTMLElement, songId: string, mapName: stri
           </div>
           <div class="editor-help">
             <b>space</b> play/pause · <b>←/→</b> seek beat (<b>shift</b>: bar) · click/drag waveform to scrub<br>
-            <b>✎ edit (E)</b>: click a note to delete · drag a note to move · paused D F J K toggles a note
-            at the playhead · <b>+/-</b> stretch/shrink last note · <b>ctrl+z</b> undo<br>
+            <b>✎ edit (E)</b>: click empty to place · click a note to select · drag to move ·
+            right-click or <b>Del</b> to remove · <b>+/-</b> stretch selected into a hold · <b>ctrl+z</b> undo<br>
             <b>⏺ record (R)</b>: play the song and tap D F J K on the music — long presses become holds<br>
             <b>▶ preview</b>: just watch — notes are safe from stray clicks
           </div>
@@ -85,12 +86,13 @@ export async function runEditor(root: HTMLElement, songId: string, mapName: stri
   const vizCanvas = root.querySelector('#viz-canvas') as HTMLCanvasElement;
   vizCanvas.width = vizCanvas.clientWidth; vizCanvas.height = vizCanvas.clientHeight;
   const vizCtx = vizCanvas.getContext('2d')!;
-  const highway = new Highway(canvas, THEMES[settings.theme]);
+  const lanes = settings.laneCount;
+  const highway = new Highway(canvas, THEMES[settings.theme], lanes);
   const LEAD_NAME: Record<string, string> = {
     strings: 'VIOLIN', guitar: 'GUITAR', piano: 'PIANO', synth: 'SYNTH', brass: 'BRASS',
   };
   highway.leadLabel = LEAD_NAME[analysis?.leadInstrument ?? ''] ?? 'LEAD';
-  const mapper = new InputMapper(settings.keyCodes);
+  const mapper = new InputMapper(settings.keyCodes.slice(0, lanes));
   const clock = new SongClock();
   const yt = new YouTubePane();
   await yt.mount(root.querySelector('#yt-mount') as HTMLElement, videoIdOf(songId));
@@ -103,7 +105,9 @@ export async function runEditor(root: HTMLElement, songId: string, mapName: stri
   const grid = buildGrid(analysis?.beatGrid, duration);
   const beats = analysis?.beatGrid ?? grid.filter((_, i) => i % GRID_DIV === 0);
 
-  let notes: BeatmapNote[] = baseNotes.map(n => ({ ...n }));
+  // 3-lane editing folds any lane-3 notes down (WYSIWYG: a 3-lane map only uses lanes 0..2)
+  let notes: BeatmapNote[] = lanes === 3 ? projectTo3(baseNotes) : baseNotes.map(n => ({ ...n }));
+  let selected: BeatmapNote | null = null;
   const undoStack: string[] = [];
   let dirty = false;
   type Mode = 'preview' | 'edit' | 'record';
@@ -208,7 +212,7 @@ export async function runEditor(root: HTMLElement, songId: string, mapName: stri
   setMode('edit');
   function cursorPos(ev: PointerEvent): { lane: number; t: number } {
     const rect = canvas.getBoundingClientRect();
-    const lane = Math.min(3, Math.max(0, Math.floor(((ev.clientX - rect.left) / rect.width) * 4)));
+    const lane = Math.min(lanes - 1, Math.max(0, Math.floor(((ev.clientX - rect.left) / rect.width) * lanes)));
     const y = ((ev.clientY - rect.top) / rect.height) * canvas.height;
     return { lane, t: songTimeNow() + (highway.hitY - y) / settings.scrollSpeed };
   }
@@ -223,19 +227,32 @@ export async function runEditor(root: HTMLElement, songId: string, mapName: stri
     }
     return best;
   }
-  let noteDrag: { note: BeatmapNote; moved: boolean; x: number; y: number } | null = null;
+  // edit mode mouse: click empty = place a note, click note = select, drag = move,
+  // right-click (or Delete key) = remove. The clicked/placed note is always selected,
+  // so +/- can stretch it into a hold immediately.
+  let noteDrag: { note: BeatmapNote; moved: boolean; created: boolean; x: number; y: number } | null = null;
   canvas.addEventListener('pointerdown', ev => {
-    if (mode !== 'edit') return;                    // move/delete only in edit mode
-    const n = noteAt(ev);
-    if (!n) return;
+    if (mode !== 'edit' || ev.button !== 0) return;
     canvas.setPointerCapture(ev.pointerId);
-    noteDrag = { note: n, moved: false, x: ev.clientX, y: ev.clientY };
+    let n = noteAt(ev);
+    let created = false;
+    if (!n) {                                       // empty cell → create a tap, then grab it
+      pushUndo();
+      const { lane, t } = cursorPos(ev);
+      n = { t: snap(t), lane, type: 'tap' };
+      notes.push(n);
+      notes.sort((a, b) => a.t - b.t);
+      created = true;
+    }
+    selected = n;
+    lastTouched = n;
+    noteDrag = { note: n, moved: false, created, x: ev.clientX, y: ev.clientY };
   });
   canvas.addEventListener('pointermove', ev => {
     if (!noteDrag) return;
     if (!noteDrag.moved && Math.hypot(ev.clientX - noteDrag.x, ev.clientY - noteDrag.y) > 6) {
       noteDrag.moved = true;
-      pushUndo();                                   // snapshot the pre-drag position
+      if (!noteDrag.created) pushUndo();            // moving an existing note: snapshot first
     }
     if (!noteDrag.moved) return;
     const { lane, t } = cursorPos(ev);
@@ -244,15 +261,18 @@ export async function runEditor(root: HTMLElement, songId: string, mapName: stri
   });
   canvas.addEventListener('pointerup', () => {
     if (!noteDrag) return;
-    if (!noteDrag.moved) {                          // plain click: delete
-      pushUndo();
-      notes = notes.filter(n => n !== noteDrag!.note);
-      if (lastTouched === noteDrag.note) lastTouched = null;
-    } else {
-      notes.sort((a, b) => a.t - b.t);
-      lastTouched = noteDrag.note;                  // so +/- can stretch it right away
-    }
+    if (noteDrag.moved) notes.sort((a, b) => a.t - b.t);
     noteDrag = null;
+  });
+  canvas.addEventListener('contextmenu', ev => {    // right-click a note to delete it
+    if (mode !== 'edit') return;
+    ev.preventDefault();
+    const n = noteAt(ev);
+    if (!n) return;
+    pushUndo();
+    notes = notes.filter(x => x !== n);
+    if (selected === n) selected = null;
+    if (lastTouched === n) lastTouched = null;
   });
 
   // waveform scrubbing: click jumps, drag slides the song under the playhead
@@ -302,6 +322,11 @@ export async function runEditor(root: HTMLElement, songId: string, mapName: stri
     if (e.code === 'KeyR' && !e.repeat) { setMode(mode === 'record' ? 'edit' : 'record'); return; }
     if (e.code === 'KeyE' && !e.repeat) { setMode(mode === 'edit' ? 'preview' : 'edit'); return; }
     if (e.code === 'KeyW' && !e.repeat) { toggleWaves(); return; }
+    if ((e.code === 'Delete' || e.code === 'Backspace') && selected) {
+      pushUndo();
+      notes = notes.filter(n => n !== selected);
+      lastTouched = null; selected = null;
+      return; }
     if (e.code === 'KeyZ' && (e.ctrlKey || e.metaKey)) {
       const prev = undoStack.pop();
       if (prev) { notes = JSON.parse(prev); lastTouched = null; }
@@ -359,6 +384,14 @@ export async function runEditor(root: HTMLElement, songId: string, mapName: stri
       .map(n => ({ ...n, state: 'pending' as const }));
     highway.draw(visible, t, settings.scrollSpeed, [false, false, false, false], dt,
                  undefined, beats, showWaves ? analysis?.energyCurves ?? null : null);
+    if (selected && notes.includes(selected) && mode !== 'preview') {
+      const ctx = canvas.getContext('2d')!;
+      const laneW = canvas.width / lanes;
+      const x = highway.laneX(selected.lane);
+      const y = highway.noteY(selected.t, t, settings.scrollSpeed);
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(x, y, Math.min(26, laneW * 0.32) + 7, 0, Math.PI * 2); ctx.stroke();
+    }
     drawVisualizer(vizCtx, analysis?.energyCurves ?? null, t);
 
     const beatNo = nearestIdx(beats as number[], t);

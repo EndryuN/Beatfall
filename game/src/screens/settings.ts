@@ -5,8 +5,7 @@ export function renderSettings(root: HTMLElement, onBack: () => void): void {
   root.innerHTML = `
     <div style="max-width:520px;margin:0 auto;padding:24px;display:flex;flex-direction:column;gap:16px">
       <h2>Settings</h2>
-      <div>Keys (click then press a key): ${[0, 1, 2, 3].map(i =>
-        `<button class="chip medium" data-key="${i}">${s.keyCodes[i].replace('Key', '')}</button>`).join(' ')}</div>
+      <div>Keys (click then press a key): <span id="keybtns"></span></div>
       <label>Highway lanes:
         <select id="lanes"><option value="4">4 lanes (D F J K)</option><option value="3">3 lanes — classic Tap Tap (D F J)</option></select></label>
       <label>Highway side:
@@ -20,20 +19,31 @@ export function renderSettings(root: HTMLElement, onBack: () => void): void {
         mostly EARLY hits → increase offset; mostly LATE → decrease. (±5 ms steps; proper metronome test is post-hackathon.)</p>
       <button id="back">save & back</button>
     </div>`;
-  (root.querySelector('#lanes') as HTMLSelectElement).value = String(s.laneCount);
+  const lanesSel = root.querySelector('#lanes') as HTMLSelectElement;
+  lanesSel.value = String(s.laneCount);
   (root.querySelector('#side') as HTMLSelectElement).value = s.highwaySide;
   (root.querySelector('#theme') as HTMLSelectElement).value = s.theme;
-  root.querySelectorAll<HTMLButtonElement>('[data-key]').forEach(b =>
-    b.addEventListener('click', () => {
-      b.textContent = '…';
-      const h = (e: KeyboardEvent) => {
-        e.preventDefault();
-        s.keyCodes[Number(b.dataset.key)] = e.code;
-        b.textContent = e.code.replace('Key', '');
-        window.removeEventListener('keydown', h);
-      };
-      window.addEventListener('keydown', h);
-    }));
+
+  // show one remappable key per lane (3 in 3-lane mode); re-render when lanes change
+  const keybtns = root.querySelector('#keybtns') as HTMLElement;
+  function renderKeys(): void {
+    const n = Number(lanesSel.value) === 3 ? 3 : 4;
+    keybtns.innerHTML = Array.from({ length: n }, (_, i) =>
+      `<button class="chip medium" data-key="${i}">${s.keyCodes[i].replace('Key', '')}</button>`).join(' ');
+    keybtns.querySelectorAll<HTMLButtonElement>('[data-key]').forEach(b =>
+      b.addEventListener('click', () => {
+        b.textContent = '…';
+        const h = (e: KeyboardEvent) => {
+          e.preventDefault();
+          s.keyCodes[Number(b.dataset.key)] = e.code;
+          b.textContent = e.code.replace('Key', '');
+          window.removeEventListener('keydown', h);
+        };
+        window.addEventListener('keydown', h);
+      }));
+  }
+  lanesSel.addEventListener('change', renderKeys);
+  renderKeys();
   root.querySelector('#back')!.addEventListener('click', () => {
     s.laneCount = Number((root.querySelector('#lanes') as HTMLSelectElement).value) === 3 ? 3 : 4;
     s.highwaySide = (root.querySelector('#side') as HTMLSelectElement).value as 'left' | 'right';

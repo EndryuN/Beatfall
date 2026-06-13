@@ -3,7 +3,7 @@ import { POSE_DUR } from './band';
 
 const SHIRT: Record<string, string> = {
   drummer: '#ff5e7a', guitarist: '#06d6a0', bassist: '#4cc9f0', singer: '#ffd166',
-  violinist: '#b14cff',
+  violinist: '#b14cff', pianist: '#4895ef',
 };
 const SKIN = '#f1c9a5';
 const OUTLINE = '#1b1226';
@@ -180,6 +180,22 @@ function drawRolePropAndArms(ctx: CanvasRenderingContext2D, m: MemberState, band
       ctx.beginPath();
       ctx.moveTo(-bodyW2(s), armY); ctx.lineTo(-16 * s, -bodyH * 0.78);
       ctx.moveTo(bodyW2(s), armY); ctx.lineTo(6 * s + swing * 4 * s, -bodyH * 0.42);
+      ctx.stroke();
+      break;
+    }
+    case 'pianist': {
+      // a keyboard slab in front, both hands bouncing on the keys with the music
+      ctx.fillStyle = '#1b1226';
+      ctx.fillRect(-22 * s, -6 * s, 44 * s, 9 * s); ctx.strokeRect(-22 * s, -6 * s, 44 * s, 9 * s);
+      ctx.fillStyle = '#f0f0f5';
+      for (let k = -5; k <= 5; k++) {
+        ctx.fillRect(k * 4 * s - 1.4 * s, -5 * s, 2.8 * s, 6 * s);
+      }
+      ctx.lineWidth = 3.5 * s;
+      const lh = swing * 4 * s, rh = -swing * 4 * s;
+      ctx.beginPath();
+      ctx.moveTo(-bodyW2(s), armY); ctx.lineTo(-12 * s, -6 * s + lh);
+      ctx.moveTo(bodyW2(s), armY); ctx.lineTo(12 * s, -6 * s + rh);
       ctx.stroke();
       break;
     }

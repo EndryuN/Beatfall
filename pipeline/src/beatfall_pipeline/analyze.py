@@ -161,7 +161,7 @@ def analyze_audio(y: np.ndarray, sr: int, meta: SongMeta,
                 lead_instrument = detect_lead_instrument(stems["other"], sr)
             except Exception as e:
                 log.warning("instrument tagging unavailable: %s", e)
-            roster.append("violinist" if lead_instrument == "strings" else "guitarist")
+            roster.append({"strings": "violinist", "piano": "pianist"}.get(lead_instrument, "guitarist"))
     else:
         # HPSS mode: percussive ≈ drums, harmonic ≈ everything melodic ("other")
         y_harm, y_perc = librosa.effects.hpss(y)

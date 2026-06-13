@@ -7,7 +7,7 @@ LEAD_IN_S = 2.0            # no notes before this — the player needs a runway
 SNAP_TOL_FRAC = 0.35       # onsets farther than this fraction of a slot from the grid are noise
 MAX_BUDGET_CARRY = 1.5     # unused note budget rolls into the next window, but doesn't pile up forever
 
-FILL_ENERGY = 0.6          # hard streams only where the song is actually loud
+FILL_ENERGY = 0.72         # hard streams only where the song is genuinely loud
 FILL_STRENGTH = 0.25       # synthetic fills are first to go when the global cap trims
 
 # Per-difficulty character (piano-cover model: melody is the lead line everywhere).
@@ -15,15 +15,15 @@ FILL_STRENGTH = 0.25       # synthetic fills are first to go when the global cap
 # same lanes, fewer of them, so learning easy literally teaches hard's skeleton.
 #   lane_gap = minimum same-lane repeat interval: hard allows genuine rapid streams.
 DIFF = {
-    "easy":   {"density": 2.0, "slot": 4, "floor": 0.40, "min_hold": 0.9,
-               "energy": (0.30, 0.70), "hats": False, "chord_strength": None, "window_beats": 4,
-               "stems": {"drums", "vocals"}, "fill": False, "lane_gap": 0.22},
+    "easy":   {"density": 2.6, "slot": 2, "floor": 0.38, "min_hold": 0.9,
+               "energy": (0.35, 0.70), "hats": False, "chord_strength": None, "window_beats": 4,
+               "stems": {"drums", "vocals"}, "fill": False, "lane_gap": 0.20},
     "medium": {"density": 4.0, "slot": 2, "floor": 0.30, "min_hold": 0.6,
                "energy": (0.35, 0.85), "hats": True, "chord_strength": None, "window_beats": 1,
                "stems": {"drums", "vocals", "other"}, "fill": False, "lane_gap": 0.15},
-    "hard":   {"density": 5.5, "slot": 1, "floor": 0.25, "min_hold": 0.45,
-               "energy": (0.45, 0.80), "hats": True, "chord_strength": 0.88, "window_beats": 1,
-               "stems": {"drums", "vocals", "other", "bass"}, "fill": True, "lane_gap": 0.09},
+    "hard":   {"density": 4.5, "slot": 1, "floor": 0.32, "min_hold": 0.45,
+               "energy": (0.40, 0.70), "hats": True, "chord_strength": 0.93, "window_beats": 1,
+               "stems": {"drums", "vocals", "other", "bass"}, "fill": True, "lane_gap": 0.12},
 }
 DENSITY = {d: c["density"] for d, c in DIFF.items()}       # kept for external reference
 

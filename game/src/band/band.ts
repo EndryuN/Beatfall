@@ -5,7 +5,8 @@ export interface BandCurves { sampleRateHz: number; stems: Record<string, number
 export interface MemberState { role: RosterMember; stem: Stem; pose: Pose; poseT: number; }
 
 const STEM_OF: Record<RosterMember, Stem> = {
-  drummer: 'drums', bassist: 'bass', singer: 'vocals', guitarist: 'other', violinist: 'other',
+  drummer: 'drums', bassist: 'bass', singer: 'vocals', guitarist: 'other',
+  violinist: 'other', pianist: 'other',
 };
 export const POSE_DUR: Record<Exclude<Pose, 'groove'>, number> = {
   stumble: 0.5, fall: 1.6, hype: 0.9, frozen: 0.7,
